@@ -1,0 +1,6 @@
+<h2>정말로 회원탈퇴 하시겠습니까?</h2>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">탈퇴하기</button>
+    <a href="/accounts/profile/">취소</a>
+</form> 
