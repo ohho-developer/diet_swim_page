@@ -133,7 +133,7 @@ if os.environ.get('DEBUG') == 'True':
     STATIC_ROOT = None
 else:
     # 배포환경 설정
-    STATIC_URL = 'static/'
+    STATIC_URL = 'staticfiles/'
     STATIC_ROOT = BASE_DIR / 'staticfiles'
     STATICFILES_DIRS = []
 
