@@ -126,14 +126,14 @@ import os
 
 if os.environ.get('DEBUG') == 'True':
     # 개발환경 설정
-    STATIC_URL = 'static/'
+    STATIC_URL = '/static/'
     STATICFILES_DIRS = [
         BASE_DIR / 'static',  # 예시: 프로젝트 루트의 static 폴더
     ]
     STATIC_ROOT = None
 else:
     # 배포환경 설정
-    STATIC_URL = 'staticfiles/'
+    STATIC_URL = '/static/'
     STATIC_ROOT = BASE_DIR / 'staticfiles'
     STATICFILES_DIRS = []
 
