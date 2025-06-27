@@ -6,3 +6,4 @@ numpy
 pandas
 scikit-learn
 psycopg2-binary 
+django-bootstrap4 
