@@ -40,12 +40,19 @@
                         {% comment %} <li class="nav-item">
                             <a class="nav-link" href="{% url 'contents:content_list' %}">콘텐츠</a>
                         </li> {% endcomment %}
-                        {% comment %} <li class="nav-item">
-                            <form id="logout-form" action="{% url 'logout' %}" method="post" style="display: none;">
-                                {% csrf_token %}
-                            </form>
-                            <a class="nav-link" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">로그아웃</a>
-                        </li> {% endcomment %}
+                        {% if user.is_authenticated %}
+                            <li class="nav-item">
+                                <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" style="display: none;">
+                                    {% csrf_token %}
+                                </form>
+                                <a class="nav-link" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">로그아웃</a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'accounts:login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
+                            </li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'accounts:signup' %}">회원가입</a></li>
+                        {% endif %}
                     {% comment %} {% else %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'login' %}">로그인</a>

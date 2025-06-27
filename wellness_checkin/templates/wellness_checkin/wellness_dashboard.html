@@ -1,0 +1,198 @@
+{% extends 'main/base.html' %}
+{% load static %}
+{% block content %}
+<div class="container" style="max-width:900px; margin:0 auto; padding:2rem 0;">
+    <ul class="nav nav-tabs mb-4 justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:dashboard' %}">대시보드</a>
+        </li>
+    </ul>
+    <h2 class="mb-2">웰니스 대시보드</h2>
+    <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
+    <div class="mb-4 text-center">
+        <a href="?period=14" class="btn btn-outline-primary btn-sm {% if period == 14 %}active{% endif %}">2주</a>
+        <a href="?period=28" class="btn btn-outline-primary btn-sm {% if period == 28 %}active{% endif %}">4주</a>
+        <a href="?period=all" class="btn btn-outline-primary btn-sm {% if period == 'all' %}active{% endif %}">전체</a>
+    </div>
+    {% if no_data %}
+        <div class="alert alert-info text-center">아직 기록된 데이터가 없습니다.<br>데일리 체크인을 먼저 입력해 주세요!</div>
+    {% else %}
+    <div class="row mb-5">
+        <div class="col-md-6 mb-4 mb-md-0">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">체중 변화 추이</h5>
+                    <canvas id="weightChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">웰니스 점수 변화 추이 (문항별)</h5>
+                    <div id="wellness-question-charts" style="max-height:600px; overflow-y:auto;">
+                        {% for q in wellness_questions_chart_data %}
+                        <div class="mb-4">
+                            <div style="font-size:1em; font-weight:bold; margin-bottom:0.3em;">{{ q.question_text }}</div>
+                            <canvas id="wellnessChart_{{ q.question_key }}" height="240"></canvas>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">나의 체중 변화에 가장 큰 영향을 미친 웰니스 습관은?</h5>
+            {% if ai_insight %}
+                <canvas id="insightChart" height="120"></canvas>
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h6 class="text-success">긍정적 영향 요인</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                        {% for c in ai_insight.positive %}
+                            <span class="badge bg-success" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
+                        {% empty %}
+                            <span>없음</span>
+                        {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-danger">주의해야 할 요인</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                        {% for c in ai_insight.negative %}
+                            <span class="badge bg-danger" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
+                        {% empty %}
+                            <span>없음</span>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-warning text-center">{{ insight_message }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{# 차트 데이터 JSON 안전 출력 #}
+{{ wellness_chart_datasets|json_script:"wellness-chart-datasets" }}
+{{ weight_data_dates|json_script:"weight-data-dates" }}
+{{ weight_data_weights|json_script:"weight-data-weights" }}
+{% if ai_insight %}
+{{ ai_insight_labels_positive|json_script:"insight-labels-positive" }}
+{{ ai_insight_labels_negative|json_script:"insight-labels-negative" }}
+{{ ai_insight_data_positive|json_script:"insight-data-positive" }}
+{{ ai_insight_data_negative|json_script:"insight-data-negative" }}
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if not no_data %}
+// 체중 변화 추이
+const weightCtx = document.getElementById('weightChart').getContext('2d');
+const weightLabels = JSON.parse(document.getElementById('weight-data-dates').textContent).map(d => {
+    const parts = d.split('-');
+    return parts[1] + '.' + parts[2];
+});
+const weightValues = JSON.parse(document.getElementById('weight-data-weights').textContent);
+const weightData = {
+    labels: weightLabels,
+    datasets: [{
+        label: '아침 공복 체중(kg)',
+        data: weightValues,
+        borderColor: '#007bff',
+        backgroundColor: 'rgba(0,123,255,0.1)',
+        tension: 0.2,
+        fill: true,
+        pointRadius: 3,
+    }]
+};
+new Chart(weightCtx, {
+    type: 'line',
+    data: weightData,
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { title: { display: true, text: '날짜' } }, y: { title: { display: true, text: '체중(kg)' } } }
+    }
+});
+// 웰니스 점수 변화 추이 (문항별)
+const wellnessQuestions = {{ wellness_questions_chart_data|safe }};
+wellnessQuestions.forEach(function(q, idx) {
+    const ctx = document.getElementById('wellnessChart_' + q.question_key).getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: weightLabels,
+            datasets: [
+                {
+                    label: q.badge,
+                    data: q.scores_smooth,
+                    borderColor: 'hsl(' + (60 + idx * 60) + ', 70%, 50%)',
+                    backgroundColor: 'rgba(0,0,0,0)',
+                    tension: 0.2,
+                    pointRadius: 2,
+                    yAxisID: 'y',
+                },
+                {
+                    label: '체중(kg)',
+                    data: q.weights,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0,123,255,0.1)',
+                    tension: 0.2,
+                    fill: false,
+                    pointRadius: 2,
+                    yAxisID: 'y2',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: true } },
+            scales: {
+                x: { title: { display: true, text: '날짜' } },
+                y: { title: { display: true, text: '점수' }, min: 1, max: 5, position: 'left' },
+                y2: { title: { display: true, text: '체중(kg)' }, position: 'right', grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+});
+{% if ai_insight %}
+// AI 인사이트 (회귀계수)
+const insightLabels = [
+  ...JSON.parse(document.getElementById('insight-labels-positive').textContent),
+  ...JSON.parse(document.getElementById('insight-labels-negative').textContent)
+];
+const insightData = [
+  ...JSON.parse(document.getElementById('insight-data-positive').textContent),
+  ...JSON.parse(document.getElementById('insight-data-negative').textContent)
+];
+const insightColors = [
+  ...Array(JSON.parse(document.getElementById('insight-labels-positive').textContent).length).fill('#28a745'),
+  ...Array(JSON.parse(document.getElementById('insight-labels-negative').textContent).length).fill('#dc3545')
+];
+const insightCtx = document.getElementById('insightChart').getContext('2d');
+new Chart(insightCtx, {
+    type: 'bar',
+    data: {
+        labels: insightLabels,
+        datasets: [{
+            label: '영향력(절댓값)',
+            data: insightData.map(Math.abs),
+            backgroundColor: insightColors,
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { title: { display: true, text: '영향력(절댓값)' } } }
+    }
+});
+{% endif %}
+{% endif %}
+</script>
+{% endblock %} 
