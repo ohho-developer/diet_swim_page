@@ -31,6 +31,7 @@ SECRET_KEY = env.str("SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=True)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+CSRF_TRUSTED_ORIGINS = ['https://port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app/','https://bloomingswim.designusplus.com/']
 
 
 
