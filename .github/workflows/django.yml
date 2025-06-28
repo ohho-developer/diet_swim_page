@@ -33,6 +33,16 @@ jobs:
                   value: port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app,bloomingswim.designusplus.com
                 - name: DEBUG
                   value: "False"
+                - name: DB_NAME
+                  value: postgres
+                - name: DB_USER
+                  value: root
+                - name: DB_PASSWORD
+                  value: Rngh20160816!
+                - name: DB_HOST
+                  value: svc.sel4.cloudtype.app
+                - name: DB_PORT
+                  value: "30159"
               ports: 8000
               start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
               buildenv: []
