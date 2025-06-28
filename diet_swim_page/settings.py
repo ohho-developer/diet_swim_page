@@ -141,16 +141,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-if os.environ.get('DEBUG') == 'True':
+STATIC_URL = '/static/'
+
+if DEBUG:
     # 개발환경 설정
-    STATIC_URL = '/static/'
     STATICFILES_DIRS = [
         BASE_DIR / 'static',  # 예시: 프로젝트 루트의 static 폴더
     ]
     STATIC_ROOT = None
 else:
     # 배포환경 설정
-    STATIC_URL = '/static/'
     STATIC_ROOT = BASE_DIR / 'staticfiles'
     STATICFILES_DIRS = []
 
