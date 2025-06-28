@@ -106,6 +106,8 @@ def wellness_dashboard_view(request):
     questions = SurveyQuestion.objects.filter(is_active=True).order_by('order')
     question_keys = [q.question_key for q in questions]
     question_texts = {q.question_key: q.question_text for q in questions}
+    # SurveyQuestion badge_label 매핑
+    badge_labels = {q.question_key: (q.badge_label or q.question_key.upper()) for q in questions}
     # 웰니스 점수 변화 추이 데이터
     wellness_data = {k: [] for k in question_keys}
     for c in checkins:
@@ -117,7 +119,7 @@ def wellness_dashboard_view(request):
     # AI 인사이트: 최소 14개 이상 데이터일 때만 회귀분석
     ai_insight = None
     insight_message = None
-    if checkins.count() >= 14:
+    if checkins.count() > 10:
         # 데이터프레임 생성
         df = pd.DataFrame([
             {'date': c.date, 'weight': c.morning_fasting_weight, **c.responses} for c in checkins
@@ -131,8 +133,6 @@ def wellness_dashboard_view(request):
         coefs = model.coef_
         # 영향력 큰 상위 5개 추출 (절댓값 기준)
         coef_info = []
-        # SurveyQuestion badge_label 매핑
-        badge_labels = {q.question_key: (q.badge_label or q.question_key.upper()) for q in questions}
         for i, k in enumerate(question_keys):
             coef_info.append({
                 'key': k,
