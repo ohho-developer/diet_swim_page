@@ -39,6 +39,7 @@
                         각 습관별 5일 평균 점수와 체중지수의 변화를 비교해보세요.<br>
                         <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#28a745; margin-right:4px; vertical-align:middle;"></span>체중감소에 도움
                         <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#dc3545; margin:0 4px 0 12px; vertical-align:middle;"></span>체중증가에 영향
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#cccccc; margin:0 4px 0 12px; vertical-align:middle;"></span>유의미하지 않음
                     </div>
                     <hr class="my-3">
                     <div id="wellness-question-charts" style="max-height:600px; overflow-y:auto;">
@@ -47,6 +48,9 @@
                             <div style="font-size:1em; font-weight:bold; margin-bottom:0.3em;">
                                 <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background-color:{{ q.circle_color }}; margin-right:6px; vertical-align:middle;"></span>
                                 {{ q.question_text }}
+                                {% if q.coef is not None %}
+                                <small class="text-muted">(coef: {{ q.coef|floatformat:4 }}, p: {{ q.pvalue|floatformat:4 }})</small>
+                                {% endif %}
                             </div>
                             <canvas id="wellnessChart_{{ q.question_key }}" height="240"></canvas>
                         </div>
@@ -67,6 +71,11 @@
                     <strong>분석 신뢰도:</strong> {{ model_confidence }}
                 </div>
                 {% endif %}
+                {% if best_lag and best_adj_r2 %}
+                <div class="alert alert-secondary mb-2" style="font-size: 0.9em;">
+                    당신의 생활습관은 <b>약 {{ best_lag }}일 후</b>에 체중에 반영되는 경향이 있어요.<br>
+                </div>
+                {% endif %}
                 <div class="text-muted mb-2" style="font-size: 0.9em;">
                     <div class="d-flex align-items-center gap-3">
                         <div class="d-flex align-items-center gap-1">
@@ -76,6 +85,10 @@
                         <div class="d-flex align-items-center gap-1">
                             <div style="width: 12px; height: 12px; background-color: #dc3545; border-radius: 2px;"></div>
                             <span>체중 증가에 영향을 주는 습관</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <div style="width: 12px; height: 12px; background-color: #cccccc; border-radius: 2px;"></div>
+                            <span>유의미하지 않은 습관</span>
                         </div>
                     </div>
                 </div>
@@ -113,6 +126,15 @@
             {% endif %}
         </div>
     </div>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-2">행동 인과 분석</h5>
+            <div class="text-muted mb-2" style="font-size: 0.9em;">행동 간의 방향성을 분석해 무엇이 무엇을 유발하는지 알려드립니다.</div>
+            <hr class="my-3">
+            <div id="causal-loading" class="text-center text-muted" style="padding:2em;">분석 중입니다...<br>잠시만 기다려주세요.</div>
+            <div id="causal-graph" style="height:500px; display:none;"></div>
+        </div>
+    </div>
     {% endif %}
 </div>
 {# 차트 데이터 JSON 안전 출력 #}
@@ -126,7 +148,10 @@
 {{ ai_insight_data_negative|json_script:"insight-data-negative" }}
 {% endif %}
 {{ wellness_questions_chart_data|json_script:"wellness-questions-chart-data" }}
+{{ coef_map|json_script:"coef-map" }}
+{{ pvalue_map|json_script:"pvalue-map" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <script>
 {% if not no_data %}
 // 체중 변화 추이
@@ -231,5 +256,37 @@ new Chart(insightCtx, {
 });
 {% endif %}
 {% endif %}
+// 비동기 인과분석 요청 및 시각화
+fetch("/wellness/causal_analysis/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+        coef_map: JSON.parse(document.getElementById('coef-map').textContent),
+        pvalue_map: JSON.parse(document.getElementById('pvalue-map').textContent)
+    })
+})
+.then(response => response.json())
+.then(data => {
+    console.log("edges:", data.causal_edges_vis.length, data.causal_edges_vis);
+    console.log("nodes:", data.causal_nodes_vis.length, data.causal_nodes_vis);
+    document.getElementById('causal-loading').style.display = 'none';
+    if (data.causal_nodes_vis.length > 0 && data.causal_edges_vis.length > 0) {
+        document.getElementById('causal-graph').style.display = '';
+        const causalData = {
+            nodes: new vis.DataSet(data.causal_nodes_vis),
+            edges: new vis.DataSet(data.causal_edges_vis)
+        };
+        const causalOptions = {
+            nodes: { borderWidth: 2 },
+            edges: { arrows: 'to', color: { color: '#1976d2' }, width: 1 },
+            physics: { stabilization: true },
+            layout: { improvedLayout: true }
+        };
+        new vis.Network(document.getElementById('causal-graph'), causalData, causalOptions);
+    } else {
+        document.getElementById('causal-graph').style.display = '';
+        document.getElementById('causal-graph').innerHTML = '<div class="text-muted text-center">인과 네트워크를 그릴 데이터가 부족합니다.</div>';
+    }
+});
 </script>
 {% endblock %} 
