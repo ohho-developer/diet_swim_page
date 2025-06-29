@@ -24,7 +24,9 @@
         <div class="col-md-6 mb-4 mb-md-0">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title">체중 변화 추이</h5>
+                    <h5 class="card-title mb-2">체중 변화 추이</h5>
+                    <div class="text-muted mb-2" style="font-size: 0.9em;">매일 측정한 체중을 5일 평균으로 보여줍니다.</div>
+                    <hr class="my-3">
                     <canvas id="weightChart" height="220"></canvas>
                 </div>
             </div>
@@ -32,11 +34,20 @@
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title">웰니스 점수 변화 추이 (문항별)</h5>
+                    <h5 class="card-title mb-2">웰니스 점수 변화 추이 (문항별)</h5>
+                    <div class="text-muted mb-2" style="font-size: 0.9em;">
+                        각 습관별 5일 평균 점수와 체중지수의 변화를 비교해보세요.<br>
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#28a745; margin-right:4px; vertical-align:middle;"></span>체중감소에 도움
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#dc3545; margin:0 4px 0 12px; vertical-align:middle;"></span>체중증가에 영향
+                    </div>
+                    <hr class="my-3">
                     <div id="wellness-question-charts" style="max-height:600px; overflow-y:auto;">
                         {% for q in wellness_questions_chart_data %}
                         <div class="mb-4">
-                            <div style="font-size:1em; font-weight:bold; margin-bottom:0.3em;">{{ q.question_text }}</div>
+                            <div style="font-size:1em; font-weight:bold; margin-bottom:0.3em;">
+                                <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background-color:{{ q.circle_color }}; margin-right:6px; vertical-align:middle;"></span>
+                                {{ q.question_text }}
+                            </div>
                             <canvas id="wellnessChart_{{ q.question_key }}" height="240"></canvas>
                         </div>
                         {% endfor %}
@@ -47,29 +58,54 @@
     </div>
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <h5 class="card-title mb-3">나의 체중 변화에 가장 큰 영향을 미친 웰니스 습관은?</h5>
+            <h5 class="card-title mb-2">나의 체중 변화에 가장 큰 영향을 미친 웰니스 습관은?</h5>
+            <div class="text-muted mb-2" style="font-size: 0.9em;">AI가 분석한 결과예요! 어떤 습관이 체중 변화에 가장 큰 영향을 주는지 알려드릴게요</div>
+            <hr class="my-3">
             {% if ai_insight %}
+                {% if model_confidence %}
+                <div class="alert alert-info mb-3" style="font-size: 0.9em;">
+                    <strong>분석 신뢰도:</strong> {{ model_confidence }}
+                </div>
+                {% endif %}
+                <div class="text-muted mb-2" style="font-size: 0.9em;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-1">
+                            <div style="width: 12px; height: 12px; background-color: #28a745; border-radius: 2px;"></div>
+                            <span>체중 감소에 도움되는 습관</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <div style="width: 12px; height: 12px; background-color: #dc3545; border-radius: 2px;"></div>
+                            <span>체중 증가에 영향을 주는 습관</span>
+                        </div>
+                    </div>
+                </div>
                 <canvas id="insightChart" height="120"></canvas>
                 <div class="row mt-4">
                     <div class="col-md-6">
                         <h6 class="text-success">긍정적 영향 요인</h6>
-                        <div class="d-flex flex-wrap gap-2">
+                        <div class="d-flex flex-wrap gap-2 mb-2">
                         {% for c in ai_insight.positive %}
                             <span class="badge bg-success" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
                         {% empty %}
                             <span>없음</span>
                         {% endfor %}
                         </div>
+                        {% for c in ai_insight.positive %}
+                        <div class="text-muted mb-1" style="font-size: 0.85em;">• {{ c.action_text }}</div>
+                        {% endfor %}
                     </div>
                     <div class="col-md-6">
                         <h6 class="text-danger">주의해야 할 요인</h6>
-                        <div class="d-flex flex-wrap gap-2">
+                        <div class="d-flex flex-wrap gap-2 mb-2">
                         {% for c in ai_insight.negative %}
                             <span class="badge bg-danger" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
                         {% empty %}
                             <span>없음</span>
                         {% endfor %}
                         </div>
+                        {% for c in ai_insight.negative %}
+                        <div class="text-muted mb-1" style="font-size: 0.85em;">• {{ c.action_text }}</div>
+                        {% endfor %}
                     </div>
                 </div>
             {% else %}
@@ -89,6 +125,7 @@
 {{ ai_insight_data_positive|json_script:"insight-data-positive" }}
 {{ ai_insight_data_negative|json_script:"insight-data-negative" }}
 {% endif %}
+{{ wellness_questions_chart_data|json_script:"wellness-questions-chart-data" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 {% if not no_data %}
@@ -121,7 +158,7 @@ new Chart(weightCtx, {
     }
 });
 // 웰니스 점수 변화 추이 (문항별)
-const wellnessQuestions = {{ wellness_questions_chart_data|safe }};
+const wellnessQuestions = JSON.parse(document.getElementById('wellness-questions-chart-data').textContent);
 wellnessQuestions.forEach(function(q, idx) {
     const ctx = document.getElementById('wellnessChart_' + q.question_key).getContext('2d');
     new Chart(ctx, {
@@ -130,7 +167,7 @@ wellnessQuestions.forEach(function(q, idx) {
             labels: weightLabels,
             datasets: [
                 {
-                    label: q.badge,
+                    label: q.badge + ' 지수',
                     data: q.scores_smooth,
                     borderColor: 'hsl(' + (60 + idx * 60) + ', 70%, 50%)',
                     backgroundColor: 'rgba(0,0,0,0)',
@@ -139,7 +176,7 @@ wellnessQuestions.forEach(function(q, idx) {
                     yAxisID: 'y',
                 },
                 {
-                    label: '체중(kg)',
+                    label: '체중지수',
                     data: q.weights,
                     borderColor: '#007bff',
                     backgroundColor: 'rgba(0,123,255,0.1)',
@@ -156,7 +193,7 @@ wellnessQuestions.forEach(function(q, idx) {
             scales: {
                 x: { title: { display: true, text: '날짜' } },
                 y: { title: { display: true, text: '점수' }, min: 1, max: 5, position: 'left' },
-                y2: { title: { display: true, text: '체중(kg)' }, position: 'right', grid: { drawOnChartArea: false } }
+                y2: { title: { display: true, text: '체중지수' }, position: 'right', grid: { drawOnChartArea: false } }
             }
         }
     });

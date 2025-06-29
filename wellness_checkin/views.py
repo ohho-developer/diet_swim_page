@@ -7,6 +7,7 @@ from django.db import IntegrityError
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 
 # Create your views here.
 
@@ -119,6 +120,7 @@ def wellness_dashboard_view(request):
     # AI 인사이트: 최소 14개 이상 데이터일 때만 회귀분석
     ai_insight = None
     insight_message = None
+    model_confidence = None
     if checkins.count() > 10:
         # 데이터프레임 생성
         df = pd.DataFrame([
@@ -131,6 +133,12 @@ def wellness_dashboard_view(request):
         model = LinearRegression()
         model.fit(X, y)
         coefs = model.coef_
+        
+        # 모델 성능 평가 (R²)
+        y_pred = model.predict(X)
+        r2 = r2_score(y, y_pred)
+        model_confidence = get_model_confidence_text(r2)
+        
         # 영향력 큰 상위 5개 추출 (절댓값 기준)
         coef_info = []
         for i, k in enumerate(question_keys):
@@ -140,6 +148,7 @@ def wellness_dashboard_view(request):
                 'coef': coefs[i],
                 'badge': badge_labels.get(k, k.upper()),
                 'label': badge_labels.get(k, k.upper()),  # 그래프용 한글 약칭
+                'action_text': convert_coefficient_to_action_language(coefs[i], badge_labels.get(k, k.upper())),  # 행동 언어
             })
         coef_info = sorted(coef_info, key=lambda x: abs(x['coef']), reverse=True)[:5]
         # 긍정/부정 분리
@@ -171,15 +180,30 @@ def wellness_dashboard_view(request):
         }
         for q in questions
     ]
-    # 각 문항별 개별 그래프용 데이터 (체중도 포함)
+    # ai_insight가 있을 때만 coef를 매핑
+    coef_map = {}
+    if ai_insight:
+        for c in ai_insight['positive'] + ai_insight['negative']:
+            coef_map[c['key']] = c['coef']
+    def get_circle_color(coef):
+        if coef is None:
+            return "#cccccc"  # 유의하지 않음(회색)
+        if coef < -0.01:
+            return "#28a745"  # 긍정(초록)
+        elif coef > 0.01:
+            return "#dc3545"  # 부정(빨강)
+        else:
+            return "#cccccc"  # 유의하지 않음(회색)
     wellness_questions_chart_data = [
         {
             'question_key': q.question_key,
             'question_text': q.question_text,
             'scores': wellness_data_scores[q.question_key],
-            'scores_smooth': moving_average(wellness_data_scores[q.question_key], window=3),
-            'weights': weight_data_weights,
-            'badge': badge_labels.get(q.question_key, q.question_key.upper()),
+            'scores_smooth': moving_average(wellness_data_scores[q.question_key], window=5),
+            'weights': moving_average(weight_data_weights, window=5),
+            'badge': '수면관리지수' if q.question_text == '수면관리' else badge_labels.get(q.question_key, q.question_key.upper()),
+            'coef': coef_map.get(q.question_key),
+            'circle_color': get_circle_color(coef_map.get(q.question_key)),
         }
         for q in questions
     ]
@@ -201,10 +225,32 @@ def wellness_dashboard_view(request):
         'period': period,
         'today': today,
         'no_data': False,
+        'model_confidence': model_confidence,
     })
 
-def moving_average(arr, window=3):
-    arr = np.array(arr, dtype=float)
-    if len(arr) < window:
-        return arr.tolist()
-    return np.convolve(arr, np.ones(window)/window, mode='same').tolist()
+def moving_average(arr, window=5):
+    s = pd.Series(arr, dtype=float)
+    return s.rolling(window=window, min_periods=1, center=True).mean().tolist()
+
+def convert_coefficient_to_action_language(coef, badge_label):
+    """회귀계수를 행동 언어로 변환"""
+    abs_coef = abs(coef)
+    weight_change = abs_coef * 1000  # kg을 g로 변환
+    
+    if coef > 0:  # 체중 증가
+        return f"{badge_label}을(를) 한 단계 더 나쁘게 하면 체중이 {weight_change:.0f}g 늘어날 가능성이 있어요"
+    else:  # 체중 감소
+        return f"{badge_label}을(를) 한 단계 더 좋게 하면 체중이 {weight_change:.0f}g 줄어들 가능성이 있어요"
+
+def get_model_confidence_text(r2_score):
+    """R² 점수를 신뢰도 텍스트로 변환"""
+    if r2_score >= 0.8:
+        return "매우 높은 신뢰도 (약 80% 이상의 정확도)"
+    elif r2_score >= 0.6:
+        return "높은 신뢰도 (약 60% 이상의 정확도)"
+    elif r2_score >= 0.4:
+        return "보통 신뢰도 (약 40% 이상의 정확도)"
+    elif r2_score >= 0.2:
+        return "낮은 신뢰도 (약 20% 이상의 정확도)"
+    else:
+        return "매우 낮은 신뢰도 (패턴이 불분명함)"
