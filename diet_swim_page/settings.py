@@ -151,7 +151,7 @@ if DEBUG:
     STATIC_ROOT = None
 else:
     # 배포환경 설정
-    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     STATICFILES_DIRS = []
 
 # Default primary key field type
