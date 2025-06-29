@@ -16,7 +16,7 @@ from .models import Profile
 SignupView = CreateView.as_view(
     form_class=UserCreationForm,
     template_name='accounts/signup.html',
-    success_url=reverse_lazy('login'),
+    success_url=reverse_lazy('accounts:login'),
 )
 
 LoginViewClass = LoginView.as_view(
@@ -25,7 +25,7 @@ LoginViewClass = LoginView.as_view(
 )
 
 LogoutViewClass = LogoutView.as_view(
-    next_page=reverse_lazy('login'),
+    next_page=reverse_lazy('accounts:login'),
 )
 
 PasswordChangeViewClass = PasswordChangeView.as_view(
@@ -40,7 +40,7 @@ PasswordChangeDoneViewClass = PasswordChangeDoneView.as_view(
 class UserDeleteView(LoginRequiredMixin, DeleteView):
     model = get_user_model()
     template_name = 'accounts/user_confirm_delete.html'
-    success_url = reverse_lazy('login')
+    success_url = reverse_lazy('accounts:login')
 
     def get_object(self):
         return self.request.user
