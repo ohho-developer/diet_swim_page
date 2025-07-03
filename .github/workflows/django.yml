@@ -49,7 +49,6 @@ jobs:
                   value: ${{ secrets.CRON_SECRET_KEY }}
               buildenv: []
               start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
-              
             context:
               git:
                 url: git@github.com:${{ github.repository }}.git
