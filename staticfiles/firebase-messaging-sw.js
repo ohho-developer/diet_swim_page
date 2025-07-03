@@ -29,7 +29,7 @@
             const notificationTitle = payload.notification.title;
             const notificationOptions = {
                 body: payload.notification.body,
-                icon: 'https://i.imgur.com/y7Ry0bf.png', // 알림 아이콘 (필수!)
+                icon: '/static/img/hochul.png', // 알림 아이콘 (필수!)
                 data: payload.data, // 추가 데이터
                 // 기타 옵션: image, tag, requireInteraction, actions 등
             };
