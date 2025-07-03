@@ -11,3 +11,4 @@ whitenoise
 statsmodels
 firebase-admin
 djangorestframework
+django-allauth
