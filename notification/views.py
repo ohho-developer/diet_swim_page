@@ -66,14 +66,17 @@ class ScheduledNotificationTrigger(APIView):
         referer = request.META.get('HTTP_REFERER', '')
         
         # 브라우저에서 온 요청인지 확인 (사용자가 버튼을 클릭한 경우)
-        is_browser_request = any([
-            'Mozilla' in user_agent,
-            'Chrome' in user_agent,
-            'Safari' in user_agent,
-            'Firefox' in user_agent,
-            'Edge' in user_agent,
-            'bloomingswim.designusplus.com' in referer
-        ])
+        is_cronjob = 'cron-job.org' in user_agent
+        is_browser_request = (
+            not is_cronjob and (
+                'mozilla' in user_agent or
+                'chrome' in user_agent or
+                'safari' in user_agent or
+                'firefox' in user_agent or
+                'edge' in user_agent or
+                'bloomingswim.designusplus.com' in referer
+            )
+        )
         
         # 외부 cron job에서 온 요청인 경우에만 시크릿 키 검사
         if not is_browser_request:
