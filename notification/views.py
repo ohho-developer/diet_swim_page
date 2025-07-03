@@ -42,11 +42,11 @@ class FCMTokenDeleteView(APIView):
 
     def post(self, request):
         try:
-            # 현재 사용자의 모든 FCM 디바이스 토큰 삭제
-            deleted_count = FCMDevice.objects.filter(user=request.user).delete()[0]
+            # 현재 사용자의 모든 FCM 디바이스 토큰을 비활성화
+            updated_count = FCMDevice.objects.filter(user=request.user, active=True).update(active=False)
             return Response({
-                'message': f'FCM tokens deleted successfully. Deleted {deleted_count} device(s).',
-                'deleted_count': deleted_count
+                'message': f'FCM tokens deactivated successfully. Deactivated {updated_count} device(s).',
+                'deactivated_count': updated_count
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -115,7 +115,6 @@ class ScheduledNotificationTrigger(APIView):
                 User = get_user_model()
                 users_to_notify = User.objects.filter(is_active=True)
                 sent_count = 0
-                
                 for user in users_to_notify:
                     title = "오늘 하루 잘 보내셨나요?"
                     body = f"{user.username}님, 잊지 않으셨죠? 오늘을 기록해보세요."
@@ -123,7 +122,6 @@ class ScheduledNotificationTrigger(APIView):
                     if send_fcm_notification(user, title, body, data):
                         sent_count += 1
                     print(f"Notification sent to {user.username}")
-
                 return Response({
                     'message': 'Scheduled task executed successfully',
                     'users_notified': sent_count,
