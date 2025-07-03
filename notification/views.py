@@ -77,8 +77,16 @@ class ScheduledNotificationTrigger(APIView):
         
         # 외부 cron job에서 온 요청인 경우에만 시크릿 키 검사
         if not is_browser_request:
+            from django.conf import settings
+            # 헤더를 여러 방식으로 읽어봄
             secret_key = request.headers.get('X-Secret-Key')
-            if not settings.CRON_SECRET_KEY or secret_key != settings.CRON_SECRET_KEY:
+            secret_key_meta = request.META.get('HTTP_X_SECRET_KEY')
+            print(f"[DEBUG] Received X-Secret-Key (headers): [{secret_key}]")
+            print(f"[DEBUG] Received X-Secret-Key (META): [{secret_key_meta}]")
+            print(f"[DEBUG] Expected CRON_SECRET_KEY: [{settings.CRON_SECRET_KEY}]")
+            print(f"[DEBUG] Content-Type: {request.content_type}")
+            # 실제 비교는 둘 중 하나라도 맞으면 통과
+            if not settings.CRON_SECRET_KEY or (secret_key != settings.CRON_SECRET_KEY and secret_key_meta != settings.CRON_SECRET_KEY):
                 return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
