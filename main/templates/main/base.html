@@ -1,0 +1,383 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}나만을 위한 완벽한 다이어트 여정 | 개인 맞춤형 다이어트 프로그램{% endblock %}</title>
+    <!-- Inter Font from Google Fonts CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% comment %} google fonsts {% endcomment %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
+
+
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyDRif0AxGNYsiDPJcTPpOf5sFypSX8Uhn4",
+            authDomain: "blooming-swim.firebaseapp.com",
+            projectId: "blooming-swim",
+            storageBucket: "blooming-swim.firebasestorage.app",
+            messagingSenderId: "81211203206",
+            appId: "1:81211203206:web:ad6359c088db43d5f57b07",
+            measurementId: "G-FJ85C6LFQW"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+        const analytics = getAnalytics(app);
+
+        // 서비스 워커 등록
+        // service-worker.js 파일이 웹 서버 루트에 있어야 합니다.
+        // 또는 scope 옵션으로 경로를 지정할 수 있습니다.
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then((registration) => {
+                console.log('Service Worker registered with scope:', registration.scope);
+                // 푸시 알림 권한 요청 및 토큰 가져오기
+                requestPermissionAndGetToken(messaging, registration);
+            })
+            .catch((error) => {
+                console.error('Service Worker registration failed:', error);
+            });
+
+
+        
+
+
+        // 포그라운드 메시지 수신 (선택 사항)
+        onMessage(messaging, (payload) => {
+            console.log('Message received in foreground. ', payload);
+            // 여기에 알림이 도착했을 때 사용자에게 보여줄 UI 로직을 추가합니다.
+            // 예: 커스텀 토스트 메시지 표시
+            const notificationTitle = payload.notification.title;
+            const notificationOptions = {
+                body: payload.notification.body,
+                icon: '/path/to/your/icon.png' // 알림 아이콘
+                // 기타 옵션: image, tag, requireInteraction, actions 등
+            };
+            new Notification(notificationTitle, notificationOptions);
+        });
+
+        // 푸시 알림 권한 요청 및 토큰 가져오기 함수
+        function requestPermissionAndGetToken(messaging, serviceWorkerRegistration) {
+            Notification.requestPermission().then((permission) => {
+                if (permission === 'granted') {
+                    console.log('Notification permission granted.');
+
+                    getToken(messaging, { serviceWorkerRegistration: serviceWorkerRegistration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' }).then((currentToken) => {
+                        if (currentToken) {
+                            console.log('Current FCM Token:', currentToken);
+                            // TODO: 이 토큰을 Django 백엔드로 전송합니다.
+                            sendTokenToServer(currentToken);
+                        } else {
+                            console.warn('No FCM registration token available. Request permission to generate one.');
+                        }
+                    }).catch((err) => {
+                        console.error('An error occurred while retrieving token. ', err);
+                    });
+                } else {
+                    console.warn('Unable to get permission to notify.');
+                }
+            });
+        }
+
+        // 토큰을 Django 백엔드로 전송하는 함수 (fetch API 사용)
+        function sendTokenToServer(token) {
+            // TODO: Django API 엔드포인트 URL로 변경하세요.
+            // 로그인된 사용자의 토큰을 보내야 하므로, 인증 헤더를 포함해야 합니다.
+            // CSRF 토큰 처리에 유의하세요 (Django REST Framework 사용 시).
+            fetch('/api/register-fcm-token/', { // Django API 엔드포인트
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'), // CSRF 토큰 가져오는 함수 필요
+                    'Authorization': `Token YOUR_AUTH_TOKEN` // 또는 Bearer Token 등
+                },
+                body: JSON.stringify({ token: token, name: 'Web Browser' })
+            })
+            .then(response => response.json())
+            .then(data => console.log('Token sent to server:', data))
+            .catch(error => console.error('Error sending token to server:', error));
+        }
+
+        // CSRF 토큰을 가져오는 헬퍼 함수 (Django 사용 시 필요)
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+    
+  
+    <style>
+        body {
+            font-family: "Noto Sans KR", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: <weight>;
+            font-style: normal;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar (Optional, can be added later) -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'index' %}">Blooming Swim</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% comment %} {% if user.is_authenticated %} {% endcomment %}
+                        {% comment %} <li class="nav-item">
+                            <a class="nav-link" href="{% url 'contents:content_list' %}">콘텐츠</a>
+                        </li> {% endcomment %}
+                        {% if user.is_authenticated %}
+                            <li class="nav-item">
+                                <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" style="display: none;">
+                                    {% csrf_token %}
+                                </form>
+                                <a class="nav-link" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">로그아웃</a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'accounts:login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
+                            </li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'accounts:signup' %}">회원가입</a></li>
+                        {% endif %}
+                    {% comment %} {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">로그인</a>
+                        </li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'accounts:signup' %}">회원가입</a></li>
+                    {% endif %} {% endcomment %}
+                </ul>
+                <div class="ms-auto">
+                    <a class="btn btn-success" href="{% url 'index' %}#contact">상담신청</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer - Updated -->
+    <footer class="footer mt-auto py-5 bg-light text-dark"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-3 text-center text-md-start"> {# 회사 정보 칼럼 #}
+                    <h5 class="text-dark mb-3">DietSwim</h5>
+                    <p class="text-dark small">
+                        상호: 디자인어스플러스<br>
+                        대표자명: 김호철<br>
+                        사업자 등록번호: 336-07-03021<br>
+                        주소: 경기도 파주시 아동로 7, 4층 라40호호
+                    </p>
+                </div>
+                {% comment %} <div class="col-md-4 mb-3 text-center text-md-start text-dark"> {# 링크 칼럼 #}
+                    <h5 class="text-dark mb-3">바로가기</h5>
+                    <ul class="list-unstyled small">
+                        <li><a href="{% url 'index' %}#hero" class="text-dark text-decoration-none">소개</a></li>
+                        <li><a href="{% url 'index' %}#services" class="text-dark text-decoration-none">서비스</a></li>
+                        <li><a href="{% url 'index' %}#testimonials" class="text-dark text-decoration-none">고객 후기</a></li>
+                        <li><a href="{% url 'index' %}#experts" class="text-dark text-decoration-none">전문가</a></li>
+                        <li><a href="{% url 'index' %}#faq" class="text-dark text-decoration-none">FAQ</a></li>
+                        <li><a href="{% url 'index' %}#contact" class="text-dark text-decoration-none">신청하기</a></li>
+                         <li><a href="{% url 'privacy_policy' %}" class="text-dark text-decoration-none">개인정보처리방침</a></li>
+                        <li><a href="{% url 'terms' %}" class="text-dark text-decoration-none">이용약관</a></li>
+                    </ul>
+                </div> {% endcomment %}
+                <div class="col-md-4 mb-3 text-center text-md-start"> {# 연락처 및 소셜 미디어 칼럼 #}
+                    <h5 class="text-dark mb-3">문의하기</h5>
+                    <p class="text-muted small">
+                        이메일: hochul.kim@designusplus.com<br>
+                        전화: 010-8373-8201
+                    </p>
+                    {% comment %} <h5 class="text-dark mt-4 mb-2">소셜 미디어</h5>
+                    <a href="#" class="text-dark me-3"><i class="fab fa-instagram fa-lg"></i></a> {# 인스타그램 아이콘 예시 #}
+                    <a href="#" class="text-dark me-3"><i class="fab fa-facebook-f fa-lg"></i></a> {# 페이스북 아이콘 예시 #}
+                    <a href="#" class="text-dark me-3"><i class="fab fa-twitter fa-lg"></i></a> {# 트위터 아이콘 예시 #} {% endcomment %}
+                     {# 필요한 다른 소셜 미디어 아이콘 추가 #}
+                </div>
+            </div>
+            <hr class="text-dark mt-4 mb-3"> {# 구분선 추가 #}
+            <div class="row">
+                <div class="col-12 text-center text-dark small">
+                    <p class="text-muted">&copy; {% now "Y" %} designusplus. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Font Awesome for Social Icons (Optional, or use Phosphor) -->
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <!-- Custom JavaScript for Form Submission -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const subscribeForm = document.getElementById('subscribeForm');
+            const emailInput = document.getElementById('emailInput');
+            const privacyCheck = document.getElementById('privacyCheck');
+            const formMessage = document.getElementById('formMessage');
+
+            const modalSubscribeForm = document.getElementById('modalSubscribeForm');
+            const modalEmailInput = document.getElementById('modalEmailInput');
+            const modalPrivacyCheck = document.getElementById('modalPrivacyCheck');
+            const modalFormMessage = document.getElementById('modalFormMessage');
+            const modalSubmitBtn = document.getElementById('modalSubmitBtn');
+
+            // Function to handle form submission
+            const handleFormSubmission = async (email, messageElement) => {
+                 messageElement.classList.add('d-none'); // Hide previous messages
+                 messageElement.classList.remove('text-success', 'text-danger');
+
+                try {
+                    const response = await fetch('/api/subscribe/', { // Django API endpoint
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                             // Include CSRF token for Django if needed (best practice)
+                             'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+
+                    const data = await response.json();
+
+                    messageElement.classList.remove('d-none');
+                    if (response.ok) {
+                        messageElement.classList.add('text-success');
+                        messageElement.textContent = '성공적으로 구독되었습니다! 감사합니다.';
+                         // Clear the input field on success
+                         emailInput.value = '';
+                         if (modalEmailInput) modalEmailInput.value = '';
+
+                         // If submitted from modal, close the modal
+                         if (messageElement === modalFormMessage) {
+                             const modal = bootstrap.Modal.getInstance(document.getElementById('emailModal'));
+                             if (modal) {
+                                setTimeout(() => {
+                                    modal.hide();
+                                     // Optionally clear the message after closing modal
+                                     modalFormMessage.classList.add('d-none');
+                                }, 3000); // Hide modal after 3 seconds
+                             }
+                         }
+
+                    } else {
+                        messageElement.classList.add('text-danger');
+                         // Display specific error message from backend if available
+                        messageElement.textContent = data.error || '구독에 실패했습니다. 다시 시도해주세요.';
+                    }
+                } catch (error) {
+                    console.error('Error submitting form:', error);
+                    messageElement.classList.remove('d-none');
+                    messageElement.classList.add('text-danger');
+                    messageElement.textContent = '오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                }
+            };
+
+            // Event listener for the main form
+            if (subscribeForm) {
+                subscribeForm.addEventListener('submit', function(event) {
+                    event.preventDefault(); // Prevent default form submission
+                    if (subscribeForm.checkValidity()) {
+                         handleFormSubmission(emailInput.value, formMessage);
+                    } else {
+                        // If form is invalid, browser will show default validation messages
+                         formMessage.classList.remove('d-none');
+                         formMessage.classList.add('text-danger');
+                         formMessage.textContent = '이메일 주소와 개인정보 처리 방침 동의는 필수입니다.';
+                    }
+                    subscribeForm.classList.add('was-validated'); // Add Bootstrap validation styles
+                }, false);
+            }
+
+            // Event listener for the modal form button
+            if (modalSubmitBtn) {
+                modalSubmitBtn.addEventListener('click', function(event) {
+                    // Since modal form is not a standard submit button, manually check validity
+                    if (modalEmailInput.checkValidity() && modalPrivacyCheck.checkValidity()) {
+                         handleFormSubmission(modalEmailInput.value, modalFormMessage);
+                         modalSubscribeForm.classList.remove('was-validated'); // Reset validation state
+                    } else {
+                         modalFormMessage.classList.remove('d-none');
+                         modalFormMessage.classList.add('text-danger');
+                         modalFormMessage.textContent = '이메일 주소와 개인정보 처리 방침 동의는 필수입니다.';
+                         modalSubscribeForm.classList.add('was-validated'); // Add Bootstrap validation styles
+                    }
+                });
+            }
+
+
+            // Helper function to get CSRF token (needed for Django POST requests)
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length, i < 10; i++) {
+                        const cookie = cookies[i].trim();
+                        // Does this cookie string begin with the name we want?
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+        });
+
+         // JavaScript to trigger animations on scroll
+         const sections = document.querySelectorAll('.fade-in-section');
+
+         const observer = new IntersectionObserver(function(entries, observer) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                } else {
+                   // entry.target.classList.remove('is-visible'); // If you want the animation to trigger every time it comes into view
+                }
+            });
+         }, {
+             threshold: 0.15
+         });
+
+         sections.forEach(section => {
+            observer.observe(section);
+         });
+
+
+         
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{% extends 'main/base.html' %}
+{% block content %}
+<div class="container" style="max-width:500px; margin:0 auto; padding:2rem 0;">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="mb-4 text-center">마이페이지</h2>
+            <p class="text-center text-muted">여기에 회원 정보가 표시됩니다.</p>
+            <ul class="list-group mb-4">
+                <li class="list-group-item"><a href="{% url 'accounts:profile_update' %}" class="text-decoration-none">프로필 정보 수정</a></li>
+                <li class="list-group-item"><a href="{% url 'accounts:password_change' %}" class="text-decoration-none">비밀번호 변경</a></li>
+                <li class="list-group-item"><a href="{% url 'accounts:user_delete' %}" class="text-danger text-decoration-none">회원탈퇴</a></li>
+            </ul>
+            <div class="text-center">
+                <a href="{% url 'accounts:logout' %}" class="btn btn-outline-secondary">로그아웃</a>
+                <a href="{% url 'index' %}" class="btn btn-link">메인으로</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

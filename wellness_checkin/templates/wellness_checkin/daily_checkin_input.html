@@ -1,0 +1,128 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container" style="max-width: 480px; margin: 0 auto; padding: 2rem 0;">
+    <ul class="nav nav-tabs mb-4 justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'wellness_checkin:dashboard' %}">대시보드</a>
+        </li>
+    </ul>
+    <h2 class="mb-2">데일리 웰니스 체크인</h2>
+    <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <form id="checkin-form" method="post" autocomplete="off">
+        {% csrf_token %}
+        <div class="form-group mb-3">
+            <label for="morning_fasting_weight"><b>오늘 체중 (kg)</b></label>
+            <input type="number" step="0.01" min="0" class="form-control" id="morning_fasting_weight" name="morning_fasting_weight" required value="{{ input_weight }}">
+        </div>
+        <hr>
+        {% for q in questions %}
+        <div class="question-block mb-4" id="block-{{ q.question_key }}">
+            <div class="mb-1"><b>{{ q.question_text }}</b></div>
+            {% if q.guide_text %}
+            <div class="text-muted mb-1" style="font-size:0.95em;">{{ q.guide_text }}</div>
+            {% endif %}
+            <div class="score-btn-group" data-field="{{ q.question_key }}">
+                {# 점수 버튼 반복: min_score~max_score #}
+                {% for i in "12345"|slice:":"|make_list %}
+                    {% with score=q.min_score|add:forloop.counter0 %}
+                        {% if score <= q.max_score %}
+                        <button type="button" class="score-btn btn btn-outline-primary btn-sm mx-1 {% if input_responses.q.question_key == score %}selected{% endif %}" data-score="{{ score }}" data-field="{{ q.question_key }}">{{ score }}</button>
+                        {% endif %}
+                    {% endwith %}
+                {% endfor %}
+                <input type="hidden" name="{{ q.question_key }}" id="input-{{ q.question_key }}" value="{{ input_responses.q.question_key }}">
+            </div>
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-success w-100" id="submit-btn">저장하기</button>
+        <div id="loading-indicator" style="display:none; text-align:center; margin-top:1rem;">저장 중...</div>
+    </form>
+</div>
+
+<style>
+.score-btn.selected {
+    background-color: #007bff;
+    color: #fff;
+    border-color: #007bff;
+}
+.score-btn {
+    min-width: 38px;
+    font-weight: bold;
+}
+.question-block {
+    padding: 1rem 0.5rem 0.5rem 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 점수 버튼 클릭 시
+    document.querySelectorAll('.score-btn-group').forEach(function(group) {
+        const field = group.getAttribute('data-field');
+        group.querySelectorAll('.score-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                // 모든 버튼 selected 해제
+                group.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                // hidden input에 값 반영
+                document.getElementById('input-' + field).value = btn.getAttribute('data-score');
+                // 다음 문항으로 스크롤
+                const nextBlock = document.getElementById('block-' + getNextField(field));
+                if (nextBlock) {
+                    nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        });
+    });
+    // 다음 문항 key 찾기
+    function getNextField(currentField) {
+        const fields = Array.from(document.querySelectorAll('.score-btn-group')).map(g => g.getAttribute('data-field'));
+        const idx = fields.indexOf(currentField);
+        return fields[idx+1];
+    }
+    // 폼 제출 시 유효성 검사
+    document.getElementById('checkin-form').addEventListener('submit', function(e) {
+        let valid = true;
+        document.querySelectorAll('.score-btn-group').forEach(function(group) {
+            const field = group.getAttribute('data-field');
+            const val = document.getElementById('input-' + field).value;
+            if (!val) {
+                valid = false;
+                group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                group.classList.add('border', 'border-danger');
+                setTimeout(() => group.classList.remove('border', 'border-danger'), 1500);
+            }
+        });
+        if (!valid) {
+            e.preventDefault();
+            alert('모든 문항에 응답해 주세요.');
+            return false;
+        }
+        // 로딩 인디케이터
+        document.getElementById('submit-btn').disabled = true;
+        document.getElementById('loading-indicator').style.display = 'block';
+    });
+    // 기존 응답 selected 처리
+    {% for q in questions %}
+    {% if input_responses.q.question_key %}
+    const btn = document.querySelector('.score-btn[data-field="{{ q.question_key }}"][data-score="{{ input_responses.q.question_key }}"]');
+    if (btn) btn.classList.add('selected');
+    document.getElementById('input-{{ q.question_key }}').value = '{{ input_responses.q.question_key }}';
+    {% endif %}
+    {% endfor %}
+});
+</script>
+{% endblock %} 

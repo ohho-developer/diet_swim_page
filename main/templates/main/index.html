@@ -1,0 +1,348 @@
+{% extends "main/base.html" %}
+{% load static %}
+{% block content %}
+
+<style>
+    .hero-header {
+        padding-top: 60px;
+        padding-bottom: 60px;
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-overlay {
+        background: rgba(0,0,0,0.55);
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 1;
+    }
+    .hero-header .container {
+        position: relative;
+        z-index: 2;
+    }
+    </style>
+
+    <!-- 히어로 섹션 (Hero Section) - Bootstrap Only -->
+    <header class="hero-header text-white text-center position-relative" style="background: url('https://images.unsplash.com/photo-1600538441454-db4e893d1938?q=80&w=928&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') center center / cover no-repeat; min-height: 400px;">
+        <div class="hero-overlay position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.55);"></div>
+        <div class="container position-relative py-5" style="z-index:2;">
+            <h4 class="text-center mt-4 mb-4">'블루밍 스윔'과 함께 맞이하는 가장 나다운 아름다움</h1>
+            <h1 class="display-3 fw-bold mb-3">프라이빗 스윔 & AI 퍼스널 다이어트</h1>
+            <p class="fs-6 mb-4">반복되는 다이어트에 지쳤다면, 이제 가장 즐거운 방법으로 건강한 변화를 시작하세요.<br>프라이빗 수영, AI 기반 맞춤 식단, 스마트 습관 관리를 통해 당신의 몸과 마음에 활력을 채웁니다.</p>
+            <button class="btn btn-success btn-lg rounded-pill" data-bs-toggle="modal" data-bs-target="#emailModal">무료 상담 신청하기</button>
+        </div>
+    </header>
+
+    <!-- 서비스 소개 섹션 (Service Introduction) -->
+    <section id="services" class="my-5 py-4 py-md-5 fade-in-section">
+        <div class="container">
+            <h2 class="text-center mb-5">Blooming Swim만의 특별함</h2>
+            <p class="text-center mb-5 ">아름다운 바디라인을 위한 프라이빗 수영부터 미식가도 만족할 다이어트 식단, 스마트한 습관 코칭까지. 당신의 빛나는 일상을 위한 올인원 웰니스 프로그램을 만나보세요.</p>
+            <div class="row g-4 justify-content-center">
+                <!-- Service Card 1: 개인 맞춤형 다이어트 수영 프로그램 -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow rounded-3">
+                        <div class="card-body text-center">
+                            <!-- Replace with Swimming Icon -->
+                            <img src="https://placehold.co/60x60/007bff/FFFFFF?text=Swim" class="mb-3 rounded-circle" alt="수영 아이콘">
+                            <h5 class="card-title">개인 맞춤형 수영 강습</h5>
+                            <p class="card-text">전문 코치와 함께하는 1:1 맞춤 강습으로, 유연하고 아름다운 바디라인을 만들고 스트레스를 해소하세요. 당신의 운동 목표 달성을 위한 가장 프라이빗한 솔루션입니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Service Card 2: 개인 맞춤형 다이어트 식단 관리 -->
+                 <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 rounded-3 text-bg-light">
+                        <div class="card-body text-center text-secondary">
+                             <!-- Replace with Food Icon -->
+                            <img src="https://placehold.co/60x60/28a745/FFFFFF?text=Food" class="mb-3 rounded-circle" alt="음식 아이콘">
+                            <h5 class="card-title">퀄리티 높은 맞춤 식단(준비중)</h5>
+                            <p class="card-text">지역 유명 건강식 맛집과 제휴하여 매일 신선하고 맛있는 건강식을 제공합니다. 영양 균형은 물론, 매번 달라지는 메뉴로 식단의 즐거움을 더하며 건강한 변화를 응원합니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Service Card 3: 다이어트를 위한 일상 습관 트래커 -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow rounded-3">
+                        <div class="card-body text-center">
+                            <!-- Replace with Tracker Icon -->
+                             <img src="https://placehold.co/60x60/ffc107/FFFFFF?text=Track" class="mb-3 rounded-circle" alt="트래커 아이콘">
+                            <h5 class="card-title">AI 스마트 습관 코칭</h5>
+                            <p class="card-text">AI 트래커가 수면, 수분 섭취 등 일상 습관을 분석해 건강 목표 달성을 위한 퍼스널 피드백을 제공합니다. 꾸준히 지속할 수 있는 건강한 라이프스타일을 만들어보세요.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 고객 후기/사례 섹션 (Testimonials) -->
+    <section id="testimonials" class="py-4 py-md-5 bg-light fade-in-section">
+        <div class="container">
+            <h2 class="text-center mb-5">생생한 고객 후기</h2>
+            <div id="testimonialCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    <!-- Testimonial 1 -->
+                    <div class="carousel-item active">
+                        <div class="d-flex justify-content-center">
+                            <blockquote class="blockquote text-center px-4 px-md-5 fs-5">
+                                <p class="mb-0 mx-auto" style="max-width: 700px;">"운동 정체기가 왔을 때 수영을 추천받아 시작했어요. 1:1 맞춤 강습 덕분에 몸의 라인이 달라지는 게 느껴져요. 지루할 틈 없이 운동하며 활력을 되찾았습니다!"</p>
+                                <footer class="mt-3">
+                                    - 이OO 님 (바디라인 집중 프로그램)
+                                </footer>
+                            </blockquote>
+                        </div>
+                    </div>
+                    <!-- Testimonial 2 -->
+                     <div class="carousel-item">
+                        <div class="d-flex justify-content-center">
+                            <blockquote class="blockquote text-center px-4 px-md-5 fs-5">
+                                <p class="mb-0 mx-auto" style="max-width: 700px;">"매번 다이어트에 실패했는데, AI 습관 트래커로 제 생활 패턴을 분석하니 이유를 알겠더라고요. 수영으로 꾸준히 운동하고, 코칭 받으며 습관을 교정하니 몸이 가벼워지는 게 느껴져요."</p>
+                                <footer class="mt-3">
+                                    - 최OO 님 (AI 습관 코칭 프로그램)
+                                </footer>
+                            </blockquote>
+                        </div>
+                    </div>
+                     <!-- Testimonial 3 -->
+                     <div class="carousel-item">
+                        <div class="d-flex justify-content-center">
+                            <blockquote class="blockquote text-center px-4 px-md-5 fs-5">
+                                <p class="mb-0 mx-auto" style="max-width: 700px;">"단순히 운동만 하는 게 아니라, 제 몸과 마음을 온전히 돌보는 시간이에요. 세심한 수영 코칭과 내 라이프스타일에 딱 맞는 습관 관리 덕분에 하루하루 자신감이 생겨요. 최고의 셀프케어입니다!"</p>
+                                <footer class="mt-3">
+                                    - 박OO 님 (올인원 웰니스 프로그램)
+                                </footer>
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+                <!-- Carousel Controls -->
+                <button class="carousel-control-prev" type="button" data-bs-target="#testimonialCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#testimonialCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 전문가 소개 섹션 (Our Experts) -->
+    <section id="experts" class="mt-5 py-4 py-md-5 fade-in-section">
+        <div class="container">
+            <h2 class="text-center mb-5">전문가 소개</h2>
+            <div class="row g-4 justify-content-center">
+                <!-- Expert Card 1 -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow rounded-3">
+                        <div class="card-body text-center">
+                            <img src="https://i.imgur.com/zcyP4Au.png" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;" alt="수영코치">
+                            <h5 class="card-title">엄태진 (수영 코치)</h5>
+                            <p class="card-text">국가 공인 수상구조사 자격을 갖춘 전문 수영 강사</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Expert Card 2 -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow rounded-3">
+                        <div class="card-body text-center">
+                            <img src="https://i.imgur.com/y7Ry0bf.png" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;" alt="수영코치">
+                            <h5 class="card-title">김호철(식단 빅데이터 AI 분석가)</h5>
+                            <p class="card-text">로컬 F&B 데이터와 행동 심리학을 기반으로 맞춤 식단을 구성하고 습관을 분석</p>
+                        </div>
+                    </div>
+                </div>
+                 <!-- Expert Card 3 (Example - Add more if needed) -->
+                 <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow rounded-3">
+                        <div class="card-body text-center">
+                            <img src="https://i.imgur.com/caMDYng.png" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;" alt="수영코치">
+                            <h5 class="card-title">백송희(습관 코치)</h5>
+                            <p class="card-text">다이어트 동기 부여 전문가이자 자기계발 및 행동 심리학 기반으로 건강한 습관을 제안</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 자주 묻는 질문 섹션 (FAQ) -->
+    <section id="faq" class="py-4 py-md-5 bg-light fade-in-section">
+        <div class="container">
+            <h2 class="text-center mb-5">자주 묻는 질문</h2>
+            <div class="accordion" id="faqAccordion">
+                <!-- FAQ Item 1 -->
+                <div class="accordion-item rounded-3 shadow-sm mb-3">
+                    <h2 class="accordion-header" id="headingOne">
+                        <button class="accordion-button rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                            프로그램은 어떻게 진행되나요?
+                        </button>
+                    </h2>
+                    <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            프로그램의 핵심은 50분간의 프라이빗 수영 강습과 AI 기반 습관 코칭으로 이루어집니다. 강습 후 전문 코치와 함께 그날의 운동 내용과 AI 트래커에 기록된 습관 데이터를 리뷰하며, 목표 달성을 위한 다음 스텝을 논의하는 통합 세션으로 진행됩니다.
+                        </div>
+                    </div>
+                </div>
+                <!-- FAQ Item 2 -->
+                 <div class="accordion-item rounded-3 shadow-sm mb-3">
+                    <h2 class="accordion-header" id="headingTwo">
+                        <button class="accordion-button collapsed rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                            AI 습관 트래커는 구체적으로 어떤 도움을 주나요?
+                        </button>
+                    </h2>
+                    <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            전용 앱을 통해 수면, 수분 섭취, 운동 시간 등 나의 일상 습관을 간편하게 기록합니다. AI는 이 데이터를 분석해 목표(체중 감량, 컨디션 관리 등) 달성을 방해하는 요소를 찾아내고, 성공적인 변화를 위한 개인 맞춤형 피드백과 동기 부여 메시지를 제공합니다.
+                        </div>
+                    </div>
+                </div>
+                 <!-- FAQ Item 3 -->
+                 <div class="accordion-item rounded-3 shadow-sm mb-3">
+                    <h2 class="accordion-header" id="headingThree">
+                        <button class="accordion-button collapsed rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                            운동 신경이 없거나 수영을 전혀 못하는데 괜찮을까요?
+                        </button>
+                    </h2>
+                    <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            물론입니다. '블루밍 스윔'의 모든 강습은 개인의 체력과 운동 수준에 맞춰 진행됩니다. 물과 친해지는 기초 과정부터 자세 교정, 칼로리 소모를 극대화하는 다이어트 영법까지 전문 코치가 1:1로 지도해 드리니 걱정 말고 시작하세요.                       </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+     <!-- 이메일 수집 폼 섹션 (Email Collection Form) -->
+    <section id="contact" class="py-4 py-md-5 fade-in-section">
+        <div class="container">
+            <h2 class="text-center mb-3">가장 건강하고 아름다운 당신을 만나보세요!</h2>
+            <p class="text-center mb-5"> 지금 바로 이메일을 남기고, 나를 위한 맞춤 웰니스 프로그램을 추천받으세요. </p>
+            <div class="row justify-content-center">
+                <div class="col-md-8 col-lg-6">
+                    <div class="card shadow rounded-5 p-4">
+                        <div class="card-body">
+                            <form id="subscribeForm">
+                                <div class="mb-3">
+                                    <label for="emailInput" class="form-label visually-hidden">이메일 주소</label>
+                                    <input type="email" class="form-control rounded-pill" id="emailInput" placeholder="이메일 주소를 입력해주세요" required>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" id="privacyCheck" required>
+                                    <label class="form-check-label small" for="privacyCheck"><a href="{% url 'privacy_policy' %}" class="text-decoration-none">개인 정보 처리 방침</a>에 동의합니다.</label>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-success btn-lg rounded-pill">무료 상담 신청하기</button>
+                                </div>
+                                <!-- Message area for success/failure -->
+                                <div id="formMessage" class="mt-3 text-center d-none"></div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+
+<!-- Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="emailModalLabel">무료 상담 신청</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          {# 여기에 이메일 수집 폼 내용이 들어갑니다. #}
+          <!-- 이메일 수집 폼 섹션에서 폼 부분 복사 -->
+          <form id="modalSubscribeForm">
+              <div class="mb-3">
+                  <label for="modalEmailInput" class="form-label visually-hidden">이메일 주소</label>
+                  <input type="email" class="form-control form-control-lg rounded-pill" id="modalEmailInput" placeholder="이메일 주소를 입력해주세요" required>
+              </div>
+              <div class="mb-3 form-check">
+                  <input type="checkbox" class="form-check-input" id="modalPrivacyCheck" required>
+                  <label class="form-check-label small" for="modalPrivacyCheck"><a href="{% url 'privacy_policy' %}" class="text-decoration-none">개인 정보 처리 방침</a>에 동의합니다.</label>
+              </div>
+               <div id="modalFormMessage" class="mt-3 text-center d-none"></div> {# 모달 내 메시지 영역 #}
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">닫기</button>
+           <button type="button" class="btn btn-success rounded-pill" id="modalSubmitBtn">신청하기</button> {# 제출 버튼 #}
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// 일반 폼(섹션) 처리
+const subscribeForm = document.getElementById('subscribeForm');
+if (subscribeForm) {
+    subscribeForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('emailInput').value;
+        const privacyCheck = document.getElementById('privacyCheck');
+        const formMessage = document.getElementById('formMessage');
+        formMessage.classList.add('d-none');
+        if (!privacyCheck.checked) {
+            formMessage.textContent = '개인정보처리방침에 동의해야 신청이 가능합니다.';
+            formMessage.classList.remove('d-none');
+            formMessage.classList.add('text-danger');
+            return;
+        }
+        const res = await fetch('/subscribe/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `email=${encodeURIComponent(email)}`
+        });
+        const data = await res.json();
+        formMessage.textContent = data.message;
+        formMessage.classList.remove('d-none');
+        formMessage.classList.toggle('text-success', data.success);
+        formMessage.classList.toggle('text-danger', !data.success);
+        if (data.success) subscribeForm.reset();
+    });
+}
+// 모달 폼 처리
+const modalForm = document.getElementById('modalSubscribeForm');
+const modalSubmitBtn = document.getElementById('modalSubmitBtn');
+if (modalForm && modalSubmitBtn) {
+    modalSubmitBtn.addEventListener('click', async function() {
+        const email = document.getElementById('modalEmailInput').value;
+        const privacyCheck = document.getElementById('modalPrivacyCheck');
+        const formMessage = document.getElementById('modalFormMessage');
+        formMessage.classList.add('d-none');
+        if (!privacyCheck.checked) {
+            formMessage.textContent = '개인정보처리방침에 동의해야 신청이 가능합니다.';
+            formMessage.classList.remove('d-none');
+            formMessage.classList.add('text-danger');
+            return;
+        }
+        if (!email) {
+            formMessage.textContent = '이메일을 입력해주세요.';
+            formMessage.classList.remove('d-none');
+            formMessage.classList.add('text-danger');
+            return;
+        }
+        const res = await fetch('/subscribe/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `email=${encodeURIComponent(email)}`
+        });
+        const data = await res.json();
+        formMessage.textContent = data.message;
+        formMessage.classList.remove('d-none');
+        formMessage.classList.toggle('text-success', data.success);
+        formMessage.classList.toggle('text-danger', !data.success);
+        if (data.success) modalForm.reset();
+    });
+}
+</script>
+
+{% endblock %}
+
+

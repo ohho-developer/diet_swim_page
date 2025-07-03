@@ -1,0 +1,57 @@
+name: Deploy to cloudtype
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Connect deploy key
+        uses: cloudtype-github-actions/connect@v1
+        with:
+          token: ${{ secrets.CLOUDTYPE_TOKEN }}
+          ghtoken: ${{ secrets.GHP_TOKEN }}
+      - name: Deploy
+        uses: cloudtype-github-actions/deploy@v1
+        with:
+          token: ${{ secrets.CLOUDTYPE_TOKEN }}
+          project: ohho.developer/work-identity
+          stage: main
+          yaml: >
+            name: diet-swim-page
+
+            app: python@3.11
+
+            options:
+              env:
+                - name: SECRET_KEY
+                  value: django-insecure-wr_&)@4ic6182u--amva78l1ji*2xjuf^c$-&9@zoietxzikps
+                - name: ALLOWED_HOSTS
+                  value: port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app,bloomingswim.designusplus.com
+                - name: DEBUG
+                  value: "False"
+                - name: DB_NAME
+                  value: postgres
+                - name: DB_USER
+                  value: root
+                - name: DB_PASSWORD
+                  value: Rngh20160816!
+                - name: DB_HOST
+                  value: svc.sel4.cloudtype.app
+                - name: DB_PORT
+                  value: "30159"
+                - name: FIREBASE_SERVICE_ACCOUNT_KEY
+                  value: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+                - name: CRON_SECRET_KEY
+                  value: ${{ secrets.CRON_SECRET_KEY }}
+              ports: 8000
+              start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
+              buildenv: []
+            context:
+              git:
+                url: git@github.com:${{ github.repository }}.git
+                ref: ${{ github.ref }}
+              preset: python-django

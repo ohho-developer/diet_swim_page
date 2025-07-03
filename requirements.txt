@@ -1,0 +1,13 @@
+Django>=4.2
+Pillow
+django-environ 
+gunicorn 
+numpy
+pandas
+scikit-learn
+psycopg2-binary 
+django-bootstrap4
+whitenoise
+statsmodels
+firebase-admin
+djangorestframework

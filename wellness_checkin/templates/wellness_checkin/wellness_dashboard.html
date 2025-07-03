@@ -1,0 +1,292 @@
+{% extends 'main/base.html' %}
+{% load static %}
+{% block content %}
+<div class="container" style="max-width:900px; margin:0 auto; padding:2rem 0;">
+    <ul class="nav nav-tabs mb-4 justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:dashboard' %}">대시보드</a>
+        </li>
+    </ul>
+    <h2 class="mb-2">웰니스 대시보드</h2>
+    <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
+    <div class="mb-4 text-center">
+        <a href="?period=14" class="btn btn-outline-primary btn-sm {% if period == 14 %}active{% endif %}">2주</a>
+        <a href="?period=28" class="btn btn-outline-primary btn-sm {% if period == 28 %}active{% endif %}">4주</a>
+        <a href="?period=all" class="btn btn-outline-primary btn-sm {% if period == 'all' %}active{% endif %}">전체</a>
+    </div>
+    {% if no_data %}
+        <div class="alert alert-info text-center">아직 기록된 데이터가 없습니다.<br>데일리 체크인을 먼저 입력해 주세요!</div>
+    {% else %}
+    <div class="row mb-5">
+        <div class="col-md-6 mb-4 mb-md-0">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-2">체중 변화 추이</h5>
+                    <div class="text-muted mb-2" style="font-size: 0.9em;">매일 측정한 체중을 5일 평균으로 보여줍니다.</div>
+                    <hr class="my-3">
+                    <canvas id="weightChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-2">웰니스 점수 변화 추이 (문항별)</h5>
+                    <div class="text-muted mb-2" style="font-size: 0.9em;">
+                        각 습관별 5일 평균 점수와 체중지수의 변화를 비교해보세요.<br>
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#28a745; margin-right:4px; vertical-align:middle;"></span>체중감소에 도움
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#dc3545; margin:0 4px 0 12px; vertical-align:middle;"></span>체중증가에 영향
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#cccccc; margin:0 4px 0 12px; vertical-align:middle;"></span>유의미하지 않음
+                    </div>
+                    <hr class="my-3">
+                    <div id="wellness-question-charts" style="max-height:600px; overflow-y:auto;">
+                        {% for q in wellness_questions_chart_data %}
+                        <div class="mb-4">
+                            <div style="font-size:1em; font-weight:bold; margin-bottom:0.3em;">
+                                <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background-color:{{ q.circle_color }}; margin-right:6px; vertical-align:middle;"></span>
+                                {{ q.question_text }}
+                                {% if q.coef is not None %}
+                                <small class="text-muted">(coef: {{ q.coef|floatformat:4 }}, p: {{ q.pvalue|floatformat:4 }})</small>
+                                {% endif %}
+                            </div>
+                            <canvas id="wellnessChart_{{ q.question_key }}" height="240"></canvas>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-2">나의 체중 변화에 가장 큰 영향을 미친 웰니스 습관은?</h5>
+            <div class="text-muted mb-2" style="font-size: 0.9em;">AI가 분석한 결과예요! 어떤 습관이 체중 변화에 가장 큰 영향을 주는지 알려드릴게요</div>
+            <hr class="my-3">
+            {% if ai_insight %}
+                {% if model_confidence %}
+                <div class="alert alert-info mb-3" style="font-size: 0.9em;">
+                    <strong>분석 신뢰도:</strong> {{ model_confidence }}
+                </div>
+                {% endif %}
+                {% if best_lag and best_adj_r2 %}
+                <div class="alert alert-secondary mb-2" style="font-size: 0.9em;">
+                    당신의 생활습관은 <b>약 {{ best_lag }}일 후</b>에 체중에 반영되는 경향이 있어요.<br>
+                </div>
+                {% endif %}
+                <div class="text-muted mb-2" style="font-size: 0.9em;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-1">
+                            <div style="width: 12px; height: 12px; background-color: #28a745; border-radius: 2px;"></div>
+                            <span>체중 감소에 도움되는 습관</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <div style="width: 12px; height: 12px; background-color: #dc3545; border-radius: 2px;"></div>
+                            <span>체중 증가에 영향을 주는 습관</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <div style="width: 12px; height: 12px; background-color: #cccccc; border-radius: 2px;"></div>
+                            <span>유의미하지 않은 습관</span>
+                        </div>
+                    </div>
+                </div>
+                <canvas id="insightChart" height="120"></canvas>
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h6 class="text-success">긍정적 영향 요인</h6>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                        {% for c in ai_insight.positive %}
+                            <span class="badge bg-success" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
+                        {% empty %}
+                            <span>없음</span>
+                        {% endfor %}
+                        </div>
+                        {% for c in ai_insight.positive %}
+                        <div class="text-muted mb-1" style="font-size: 0.85em;">• {{ c.action_text }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-danger">주의해야 할 요인</h6>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                        {% for c in ai_insight.negative %}
+                            <span class="badge bg-danger" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
+                        {% empty %}
+                            <span>없음</span>
+                        {% endfor %}
+                        </div>
+                        {% for c in ai_insight.negative %}
+                        <div class="text-muted mb-1" style="font-size: 0.85em;">• {{ c.action_text }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-warning text-center">{{ insight_message }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-2">행동 인과 분석</h5>
+            <div class="text-muted mb-2" style="font-size: 0.9em;">행동 간의 방향성을 분석해 무엇이 무엇을 유발하는지 알려드립니다.</div>
+            <hr class="my-3">
+            <div id="causal-loading" class="text-center text-muted" style="padding:2em;">분석 중입니다...<br>잠시만 기다려주세요.</div>
+            <div id="causal-graph" style="height:500px; display:none;"></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{# 차트 데이터 JSON 안전 출력 #}
+{{ wellness_chart_datasets|json_script:"wellness-chart-datasets" }}
+{{ weight_data_dates|json_script:"weight-data-dates" }}
+{{ weight_data_weights|json_script:"weight-data-weights" }}
+{% if ai_insight %}
+{{ ai_insight_labels_positive|json_script:"insight-labels-positive" }}
+{{ ai_insight_labels_negative|json_script:"insight-labels-negative" }}
+{{ ai_insight_data_positive|json_script:"insight-data-positive" }}
+{{ ai_insight_data_negative|json_script:"insight-data-negative" }}
+{% endif %}
+{{ wellness_questions_chart_data|json_script:"wellness-questions-chart-data" }}
+{{ coef_map|json_script:"coef-map" }}
+{{ pvalue_map|json_script:"pvalue-map" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+{% if not no_data %}
+// 체중 변화 추이
+const weightCtx = document.getElementById('weightChart').getContext('2d');
+const weightLabels = JSON.parse(document.getElementById('weight-data-dates').textContent).map(d => {
+    const parts = d.split('-');
+    return parts[1] + '.' + parts[2];
+});
+const weightValues = JSON.parse(document.getElementById('weight-data-weights').textContent);
+const weightData = {
+    labels: weightLabels,
+    datasets: [{
+        label: '아침 공복 체중(kg)',
+        data: weightValues,
+        borderColor: '#007bff',
+        backgroundColor: 'rgba(0,123,255,0.1)',
+        tension: 0.2,
+        fill: true,
+        pointRadius: 3,
+    }]
+};
+new Chart(weightCtx, {
+    type: 'line',
+    data: weightData,
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { title: { display: true, text: '날짜' } }, y: { title: { display: true, text: '체중(kg)' } } }
+    }
+});
+// 웰니스 점수 변화 추이 (문항별)
+const wellnessQuestions = JSON.parse(document.getElementById('wellness-questions-chart-data').textContent);
+wellnessQuestions.forEach(function(q, idx) {
+    const ctx = document.getElementById('wellnessChart_' + q.question_key).getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: weightLabels,
+            datasets: [
+                {
+                    label: q.badge + ' 지수',
+                    data: q.scores_smooth,
+                    borderColor: 'hsl(' + (60 + idx * 60) + ', 70%, 50%)',
+                    backgroundColor: 'rgba(0,0,0,0)',
+                    tension: 0.2,
+                    pointRadius: 2,
+                    yAxisID: 'y',
+                },
+                {
+                    label: '체중지수',
+                    data: q.weights,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0,123,255,0.1)',
+                    tension: 0.2,
+                    fill: false,
+                    pointRadius: 2,
+                    yAxisID: 'y2',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: true } },
+            scales: {
+                x: { title: { display: true, text: '날짜' } },
+                y: { title: { display: true, text: '점수' }, min: 1, max: 5, position: 'left' },
+                y2: { title: { display: true, text: '체중지수' }, position: 'right', grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+});
+{% if ai_insight %}
+// AI 인사이트 (회귀계수)
+const insightLabels = [
+  ...JSON.parse(document.getElementById('insight-labels-positive').textContent),
+  ...JSON.parse(document.getElementById('insight-labels-negative').textContent)
+];
+const insightData = [
+  ...JSON.parse(document.getElementById('insight-data-positive').textContent),
+  ...JSON.parse(document.getElementById('insight-data-negative').textContent)
+];
+const insightColors = [
+  ...Array(JSON.parse(document.getElementById('insight-labels-positive').textContent).length).fill('#28a745'),
+  ...Array(JSON.parse(document.getElementById('insight-labels-negative').textContent).length).fill('#dc3545')
+];
+const insightCtx = document.getElementById('insightChart').getContext('2d');
+new Chart(insightCtx, {
+    type: 'bar',
+    data: {
+        labels: insightLabels,
+        datasets: [{
+            label: '영향력(절댓값)',
+            data: insightData.map(Math.abs),
+            backgroundColor: insightColors,
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { title: { display: true, text: '영향력(절댓값)' } } }
+    }
+});
+{% endif %}
+{% endif %}
+// 비동기 인과분석 요청 및 시각화
+fetch("/wellness/causal_analysis/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+        coef_map: JSON.parse(document.getElementById('coef-map').textContent),
+        pvalue_map: JSON.parse(document.getElementById('pvalue-map').textContent)
+    })
+})
+.then(response => response.json())
+.then(data => {
+    console.log("edges:", data.causal_edges_vis.length, data.causal_edges_vis);
+    console.log("nodes:", data.causal_nodes_vis.length, data.causal_nodes_vis);
+    document.getElementById('causal-loading').style.display = 'none';
+    if (data.causal_nodes_vis.length > 0 && data.causal_edges_vis.length > 0) {
+        document.getElementById('causal-graph').style.display = '';
+        const causalData = {
+            nodes: new vis.DataSet(data.causal_nodes_vis),
+            edges: new vis.DataSet(data.causal_edges_vis)
+        };
+        const causalOptions = {
+            nodes: { borderWidth: 2 },
+            edges: { arrows: 'to', color: { color: '#1976d2' }, width: 1 },
+            physics: { stabilization: true },
+            layout: { improvedLayout: true }
+        };
+        new vis.Network(document.getElementById('causal-graph'), causalData, causalOptions);
+    } else {
+        document.getElementById('causal-graph').style.display = '';
+        document.getElementById('causal-graph').innerHTML = '<div class="text-muted text-center">인과 네트워크를 그릴 데이터가 부족합니다.</div>';
+    }
+});
+</script>
+{% endblock %} 
