@@ -65,18 +65,31 @@
         
 
 
-        // 포그라운드 메시지 수신 (선택 사항)
+        // 포그라운드 메시지 수신 (실제 푸시알림으로 표시)
         onMessage(messaging, (payload) => {
             console.log('Message received in foreground. ', payload);
-            // 여기에 알림이 도착했을 때 사용자에게 보여줄 UI 로직을 추가합니다.
-            // 예: 커스텀 토스트 메시지 표시
-            const notificationTitle = payload.notification.title;
-            const notificationOptions = {
-                body: payload.notification.body,
-                icon: '/path/to/your/icon.png' // 알림 아이콘
-                // 기타 옵션: image, tag, requireInteraction, actions 등
+            let notificationTitle = '';
+            let notificationOptions = {
+                body: '',
+                icon: '/static/img/hochul.png', // 실제 존재하는 아이콘 경로
+                data: payload.data || {},
             };
-            new Notification(notificationTitle, notificationOptions);
+            if (payload.notification) {
+                notificationTitle = payload.notification.title;
+                notificationOptions.body = payload.notification.body;
+            } else if (payload.data) {
+                notificationTitle = payload.data.title || '';
+                notificationOptions.body = payload.data.body || '';
+            }
+            // 실제 푸시알림으로 띄우기
+            if (Notification.permission === 'granted') {
+                const n = new Notification(notificationTitle, notificationOptions);
+                n.onclick = function(event) {
+                    event.preventDefault();
+                    let targetUrl = payload.data && payload.data.url ? payload.data.url : '/';
+                    window.open(targetUrl, '_blank');
+                };
+            }
         });
 
         // 푸시 알림 권한 요청 및 토큰 가져오기 함수
