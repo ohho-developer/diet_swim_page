@@ -20,7 +20,7 @@ jobs:
           token: ${{ secrets.CLOUDTYPE_TOKEN }}
           project: ohho.developer/work-identity
           stage: main
-          yaml: |-
+          yaml: >
             name: diet-swim-page
 
             app: python@3.11
