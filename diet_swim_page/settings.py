@@ -282,3 +282,5 @@ ACCOUNT_USERNAME_BLACKLIST = ['admin', 'administrator', 'root', 'user', 'test', 
 
 # Email template settings
 ACCOUNT_EMAIL_TEMPLATE_EXTENSION = "html"
+
+CRON_SECRET_KEY = env.str("CRON_SECRET_KEY", default=os.environ.get("CRON_SECRET_KEY"))

@@ -77,10 +77,8 @@ class ScheduledNotificationTrigger(APIView):
         
         # 외부 cron job에서 온 요청인 경우에만 시크릿 키 검사
         if not is_browser_request:
-            CRON_SECRET_KEY = os.environ.get('CRON_SECRET_KEY')
             secret_key = request.headers.get('X-Secret-Key')
-            
-            if not CRON_SECRET_KEY or secret_key != CRON_SECRET_KEY:
+            if not settings.CRON_SECRET_KEY or secret_key != settings.CRON_SECRET_KEY:
                 return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
