@@ -20,7 +20,7 @@ jobs:
           token: ${{ secrets.CLOUDTYPE_TOKEN }}
           project: ohho.developer/work-identity
           stage: main
-          yaml: >
+          yaml: |-
             name: diet-swim-page
 
             app: python@3.11
@@ -47,8 +47,9 @@ jobs:
                   value: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
                 - name: CRON_SECRET_KEY
                   value: ${{ secrets.CRON_SECRET_KEY }}
-              buildenv: []
+              ports: 8000
               start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
+              buildenv: []
             context:
               git:
                 url: git@github.com:${{ github.repository }}.git
