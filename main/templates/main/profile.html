@@ -1,0 +1,63 @@
+{% extends 'main/base.html' %}
+{% block title %}프로필 | Blooming Swim{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title mb-3">프로필</h3>
+          <hr>
+          <div class="mb-4">
+            <h6 class="mb-2">알림 권한 상태</h6>
+            <div id="notification-status" class="mb-2 text-success fw-bold"></div>
+            <button id="notify-btn" class="btn btn-outline-success btn-sm" onclick="requestPermissionAndGetToken(messaging, null)">알림 허용 요청</button>
+          </div>
+          <div class="mt-4">
+            <h6 class="mb-2">내 정보</h6>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item">아이디: {{ user.username }}</li>
+              <li class="list-group-item">이메일: {{ user.email }}</li>
+              <!-- 필요시 추가 정보 표시 -->
+            </ul>
+          </div>
+          <div class="mt-4">
+            <h6 class="mb-2">계정 관리</h6>
+            <div class="d-grid gap-2 mb-3">
+              <a href="{% url 'account_change_password' %}" class="btn btn-outline-primary btn-sm">비밀번호 변경</a>
+              <a href="{% url 'accounts:profile_update' %}" class="btn btn-outline-secondary btn-sm">프로필 수정</a>
+              <a href="{% url 'accounts:user_delete' %}" class="btn btn-outline-danger btn-sm">회원 탈퇴</a>
+              <form id="logout-form" action="{% url 'account_logout' %}" method="post" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-dark btn-sm w-100 mt-2">로그아웃</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function updateNotificationStatus() {
+    const status = Notification.permission;
+    let msg = '';
+    let color = 'text-success';
+    if (status === 'granted') msg = '알림이 허용되어 있습니다.';
+    else if (status === 'denied') {
+      msg = '알림이 차단되어 있습니다. 설정 > Safari > 알림에서 허용해야 합니다.';
+      color = 'text-danger';
+    } else {
+      msg = '아직 알림 권한 요청이 이루어지지 않았습니다.';
+      color = 'text-warning';
+    }
+    const statusDiv = document.getElementById('notification-status');
+    statusDiv.innerText = msg;
+    statusDiv.className = 'mb-2 fw-bold ' + color;
+  }
+  updateNotificationStatus();
+  document.getElementById('notify-btn').addEventListener('click', function() {
+    setTimeout(updateNotificationStatus, 1000);
+  });
+</script>
+{% endblock %} 

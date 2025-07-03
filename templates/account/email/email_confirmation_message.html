@@ -1,0 +1,26 @@
+{% extends "account/email/base_message.html" %}
+{% load account %}
+{% load i18n %}
+
+{% block content %}
+{% autoescape off %}
+{% user_display user as user_display %}
+<p>{% blocktranslate with site_name=current_site.name site_domain=current_site.domain %}사용자 {{ user_display }}님이 {{ site_domain }}에서 계정 등록을 위해 귀하의 이메일 주소를 제공했습니다.{% endblocktranslate %}</p>
+
+{% if code %}
+<p>{% blocktranslate %}아래에 이메일 인증 코드가 나열되어 있습니다. 열려있는 브라우저 창에 입력해 주세요.{% endblocktranslate %}</p>
+<div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; margin: 20px 0;">
+    <h2 style="color: #007bff; margin: 0;">{{ code }}</h2>
+</div>
+{% else %}
+<p>{% blocktranslate %}이것이 맞는지 확인하려면 아래 버튼을 클릭해 주세요:{% endblocktranslate %}</p>
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ activate_url }}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+        이메일 주소 확인
+    </a>
+</div>
+<p style="font-size: 12px; color: #6c757d;">{% blocktranslate %}버튼이 작동하지 않는 경우, 아래 링크를 복사하여 브라우저에 붙여넣으실 수도 있습니다:{% endblocktranslate %}</p>
+<p style="font-size: 12px; color: #6c757d; word-break: break-all;">{{ activate_url }}</p>
+{% endif %}
+{% endautoescape %}
+{% endblock content %} 

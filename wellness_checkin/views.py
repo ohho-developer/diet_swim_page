@@ -153,12 +153,13 @@ def wellness_dashboard_view(request):
                 'label': badge_labels.get(k, k.upper()),  # 그래프용 한글 약칭
                 'action_text': convert_coefficient_to_action_language(coefs[i], badge_labels.get(k, k.upper())),  # 행동 언어
             })
-        # p값이 0.05 미만인 것만 사용 (상위 5개 제한 제거)
-        coef_info = [c for c in coef_info if c['pvalue'] is not None and c['pvalue'] < 0.1]
+        # p값이 0.1 미만이고 계수가 음수인 것만 사용 (체중감소에 도움이 되는 요소만)
+        # 양수 계수는 체중증가에 영향을 주는 부정적인 습관이므로 제외
+        coef_info = [c for c in coef_info if c['pvalue'] is not None and c['pvalue'] < 0.1 and c['coef'] < 0]
         coef_info = sorted(coef_info, key=lambda x: abs(x['coef']), reverse=True)
-        # 긍정/부정 분리
-        positive = [c for c in coef_info if c['coef'] < 0]
-        negative = [c for c in coef_info if c['coef'] > 0]
+        # 체중감소에 도움이 되는 요소들만 (음수 계수)
+        positive = coef_info  # 체중감소에 도움이 되는 요소들
+        negative = []  # 체중증가 요소들은 제외
         ai_insight = {
             'positive': positive,
             'negative': negative,
@@ -197,12 +198,12 @@ def wellness_dashboard_view(request):
             pvalue_map[k] = p_values[i]
     
     def get_circle_color(coef, pvalue):
-        if coef is None or pvalue is None or pvalue >= 0.1:
+        if coef is None or pvalue is None or pvalue >= 0.1 or coef > 0:
+            # p값이 유의하지 않거나 양수 계수(체중증가 요소)는 회색으로 처리
             return "#cccccc"
-        elif coef < 0:
-            return "#28a745"
         else:
-            return "#dc3545"
+            # 음수 계수(체중감소에 도움이 되는 요소)만 초록색으로 표시
+            return "#28a745"
     wellness_questions_chart_data = [
         {
             'question_key': q.question_key,
@@ -315,14 +316,12 @@ def moving_average(arr, window=5):
     return s.rolling(window=window, min_periods=1, center=True).mean().tolist()
 
 def convert_coefficient_to_action_language(coef, badge_label):
-    """회귀계수를 행동 언어로 변환"""
+    """회귀계수를 행동 언어로 변환 (체중감소에 도움이 되는 요소만)"""
     abs_coef = abs(coef)
     weight_change = abs_coef * 1000  # kg을 g로 변환
     
-    if coef > 0:  # 체중 증가
-        return f"{badge_label}을(를) 한 단계 더 나쁘게 하면 체중이 {weight_change:.0f}g 늘어날 가능성이 있어요"
-    else:  # 체중 감소
-        return f"{badge_label}을(를) 한 단계 더 좋게 하면 체중이 {weight_change:.0f}g 줄어들 가능성이 있어요"
+    # 음수 계수만 처리 (체중감소에 도움이 되는 요소)
+    return f"{badge_label}을(를) 한 단계 더 좋게 하면 체중이 {weight_change:.0f}g 줄어들 가능성이 있어요"
 
 def get_model_confidence_text(r2_score):
     """R² 점수를 신뢰도 텍스트로 변환"""
@@ -410,12 +409,12 @@ def causal_analysis_api(request):
                     causal_nodes_set.add(edge['from'])
                     causal_nodes_set.add(edge['to'])
             def get_circle_color(coef, pvalue):
-                if coef is None or pvalue is None or pvalue >= 0.1:
+                if coef is None or pvalue is None or pvalue >= 0.1 or coef > 0:
+                    # p값이 유의하지 않거나 양수 계수(체중증가 요소)는 회색으로 처리
                     return "#cccccc"
-                elif coef < 0:
-                    return "#28a745"
                 else:
-                    return "#dc3545"
+                    # 음수 계수(체중감소에 도움이 되는 요소)만 초록색으로 표시
+                    return "#28a745"
             result['causal_nodes_vis'] = []
             for k in causal_nodes_set:
                 coef = coef_map.get(k)

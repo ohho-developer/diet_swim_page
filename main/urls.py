@@ -8,5 +8,6 @@ urlpatterns = [
     path('terms/', TemplateView.as_view(template_name='main/terms.html'), name='terms'),
     # Serve the index.html template from the root URL
     path('subscribe/', views.email_subscribe, name='email_subscribe'),
+    path('profile/', views.profile, name='profile'),
     path('', views.index, name='index'),
 ]

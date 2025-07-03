@@ -1,0 +1,28 @@
+{% extends "account/base.html" %}
+{% load i18n allauth %}
+
+{% block head_title %}
+    {% trans "Verify Your Email Address" %}
+{% endblock head_title %}
+
+{% block inner_content %}
+    <div class="text-center">
+        <div class="mb-4">
+            <i class="fas fa-envelope-open-text text-primary" style="font-size: 3rem;"></i>
+        </div>
+        
+        <h2 class="h3 mb-3">{% trans "Verify Your Email Address" %}</h2>
+        
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            {% blocktrans %}We have sent an email to you for verification. Follow the link provided to finalize the signup process. If you do not see the verification email in your main inbox, check your spam folder. Please contact us if you do not receive the verification email within a few minutes.{% endblocktrans %}
+        </div>
+        
+        <div class="mt-4">
+            <a href="{% url 'account_login' %}" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt me-2"></i>
+                {% trans "Back to Sign In" %}
+            </a>
+        </div>
+    </div>
+{% endblock %} 

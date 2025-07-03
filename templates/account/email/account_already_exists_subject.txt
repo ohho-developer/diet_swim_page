@@ -1,0 +1,4 @@
+{% load i18n %}
+{% autoescape off %}
+{% blocktrans %}블루밍스윔 계정 중복 안내{% endblocktrans %}
+{% endautoescape %} 

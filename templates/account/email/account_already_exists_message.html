@@ -1,0 +1,23 @@
+{% extends "account/email/base_message.html" %}
+{% load i18n %}
+
+{% block content %}
+{% autoescape off %}
+<p>{% blocktranslate %}다음 이메일 주소를 사용하여 계정 가입을 시도했기 때문에 이 이메일을 받고 있습니다:{% endblocktranslate %}</p>
+
+<div class="code-box">
+    <p class="code-text">{{ email }}</p>
+</div>
+
+<p>{% blocktranslate %}그러나 해당 이메일 주소를 사용하는 계정이 이미 존재합니다. 이에 대해 잊으셨다면, 비밀번호 찾기 절차를 사용하여 계정을 복구하세요:{% endblocktranslate %}</p>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ password_reset_url }}" class="btn">
+        비밀번호 재설정
+    </a>
+</div>
+
+<p style="font-size: 12px; color: #6c757d;">{% blocktranslate %}버튼이 작동하지 않는 경우, 아래 링크를 복사하여 브라우저에 붙여넣으실 수도 있습니다:{% endblocktranslate %}</p>
+<p class="link-text">{{ password_reset_url }}</p>
+{% endautoescape %}
+{% endblock content %} 

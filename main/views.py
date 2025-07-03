@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.conf import settings
 from django.urls import reverse
+from django.contrib.auth.decorators import login_required
 
 @csrf_exempt
 @require_POST
@@ -29,3 +30,7 @@ def index(request):
     if request.user.is_authenticated:
         return redirect(reverse('wellness_checkin:daily_checkin_input'))
     return render(request, 'main/index.html')
+
+@login_required
+def profile(request):
+    return render(request, 'main/profile.html')

@@ -25,9 +25,10 @@ import os
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('main.urls')),
-    path('accounts/', include('accounts.urls')),
+    path('user/', include('accounts.urls')),
     path('api/', include('notification.urls')),
     path('wellness/', include('wellness_checkin.urls')),
+    path('accounts/', include('allauth.urls')),
 ]
 
 # Service Worker 파일을 웹사이트 루트에 제공하는 로직 (DEBUG 여부에 따라 다르게)

@@ -44,6 +44,9 @@
         const app = initializeApp(firebaseConfig);
         const messaging = getMessaging(app);
         const analytics = getAnalytics(app);
+        
+        // 전역 변수로 설정하여 다른 페이지에서도 사용할 수 있도록 함
+        window.messaging = messaging;
 
         // 서비스 워커 등록
         // service-worker.js 파일이 웹 서버 루트에 있어야 합니다.
@@ -163,17 +166,35 @@
                             <a class="nav-link" href="{% url 'contents:content_list' %}">콘텐츠</a>
                         </li> {% endcomment %}
                         {% if user.is_authenticated %}
-                            <li class="nav-item">
-                                <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" style="display: none;">
-                                    {% csrf_token %}
-                                </form>
-                                <a class="nav-link" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">로그아웃</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-user me-1"></i>{{ user.username }}
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                        <i class="fas fa-user-circle me-2"></i>마이페이지
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'account_email' %}">
+                                        <i class="fas fa-envelope me-2"></i>이메일 관리
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
+                                        <i class="fas fa-key me-2"></i>비밀번호 변경
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
+                                        <i class="fas fa-clipboard-list me-2"></i>설문입력
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
+                                        <i class="fas fa-sign-out-alt me-2"></i>로그아웃
+                                    </a></li>
+                                </ul>
                             </li>
                         {% else %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'accounts:login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
+                                <a class="nav-link" href="{% url 'account_login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
                             </li>
-                            <li class="nav-item"><a class="nav-link" href="{% url 'accounts:signup' %}">회원가입</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'account_signup' %}">회원가입</a></li>
                         {% endif %}
                     {% comment %} {% else %}
                         <li class="nav-item">
@@ -193,7 +214,7 @@
     </div>
 
     <!-- Footer - Updated -->
-    <footer class="footer mt-auto py-5 bg-light text-dark"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
+    <footer class="footer mt-auto my-5 py-5 bg-light text-dark"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
         <div class="container">
             <div class="row">
                 <div class="col-md-4 mb-3 text-center text-md-start"> {# 회사 정보 칼럼 #}
@@ -383,6 +404,23 @@
 
          
 
+    </script>
+    <div id="notification-status" style="margin: 1em 0; color: #198754; font-weight: bold;"></div>
+    <button id="notify-btn" onclick="requestPermissionAndGetToken(messaging, null)" style="margin-bottom: 1em;">알림 허용 요청</button>
+    <script>
+      function updateNotificationStatus() {
+        const status = Notification.permission;
+        let msg = '';
+        if (status === 'granted') msg = '알림이 허용되어 있습니다.';
+        else if (status === 'denied') msg = '알림이 차단되어 있습니다. 설정 > Safari > 알림에서 허용해야 합니다.';
+        else msg = '아직 알림 권한 요청이 이루어지지 않았습니다.';
+        document.getElementById('notification-status').innerText = msg;
+      }
+      updateNotificationStatus();
+      // 권한 상태가 바뀌면 자동 갱신 (권한 요청 후 등)
+      document.getElementById('notify-btn').addEventListener('click', function() {
+        setTimeout(updateNotificationStatus, 1000);
+      });
     </script>
 </body>
 </html>

@@ -1,0 +1,15 @@
+{% extends "account/email/base_message.html" %}
+{% load account %}
+{% load i18n %}
+
+{% block content %}
+{% autoescape off %}
+<p>{% blocktranslate %}로그인 코드가 아래에 나열되어 있습니다. 열려있는 브라우저 창에 입력해 주세요.{% endblocktranslate %}</p>
+
+<div class="code-box">
+    <p class="code-text">{{ code }}</p>
+</div>
+
+<p>{% blocktranslate %}이 작업을 시작하지 않으셨다면 이 메일을 안전하게 무시하셔도 됩니다.{% endblocktranslate %}</p>
+{% endautoescape %}
+{% endblock content %} 

@@ -1,20 +1,280 @@
 {% extends 'main/base.html' %}
+{% load i18n %}
+
+{% block title %}마이페이지 | 블루밍스윔{% endblock %}
+
 {% block content %}
-<div class="container" style="max-width:500px; margin:0 auto; padding:2rem 0;">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h2 class="mb-4 text-center">마이페이지</h2>
-            <p class="text-center text-muted">여기에 회원 정보가 표시됩니다.</p>
-            <ul class="list-group mb-4">
-                <li class="list-group-item"><a href="{% url 'accounts:profile_update' %}" class="text-decoration-none">프로필 정보 수정</a></li>
-                <li class="list-group-item"><a href="{% url 'accounts:password_change' %}" class="text-decoration-none">비밀번호 변경</a></li>
-                <li class="list-group-item"><a href="{% url 'accounts:user_delete' %}" class="text-danger text-decoration-none">회원탈퇴</a></li>
-            </ul>
-            <div class="text-center">
-                <a href="{% url 'accounts:logout' %}" class="btn btn-outline-secondary">로그아웃</a>
-                <a href="{% url 'index' %}" class="btn btn-link">메인으로</a>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="mb-3">
+                            <i class="fas fa-user-circle text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                        <h2 class="h3 mb-2">마이페이지</h2>
+                        <p class="text-muted">안녕하세요, <strong>{{ user.username }}</strong>님!</p>
+                    </div>
+
+                    <div class="row g-3">
+                        <!-- 알림 설정 섹션 -->
+                        <div class="col-12">
+                            <h5 class="text-info mb-3">
+                                <i class="fas fa-bell me-2"></i>알림 설정
+                            </h5>
+                            <div class="card border-info">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <h6 class="mb-1">푸시 알림</h6>
+                                            <small class="text-muted">웹 브라우저 알림을 통해 중요한 정보를 받아보세요</small>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="notificationToggle" 
+                                                   {% if user.fcm_devices.exists %}checked{% endif %}>
+                                            <label class="form-check-label" for="notificationToggle">
+                                                {% if user.fcm_devices.exists %}
+                                                    <span class="text-success">활성화</span>
+                                                {% else %}
+                                                    <span class="text-muted">비활성화</span>
+                                                {% endif %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if user.fcm_devices.exists %}
+                                        <div class="alert alert-success">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>알림이 설정되어 있습니다!</strong><br>
+                                            <small>등록된 기기: {{ user.fcm_devices.count }}개</small>
+                                        </div>
+                                        <div class="d-grid">
+                                            <button type="button" class="btn btn-outline-info btn-sm" onclick="testNotification()">
+                                                <i class="fas fa-paper-plane me-2"></i>테스트 알림 보내기
+                                            </button>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            <strong>알림이 설정되지 않았습니다.</strong><br>
+                                            <small>브라우저에서 알림 권한을 허용해주세요.</small>
+                                        </div>
+                                        <div class="d-grid">
+                                            <button type="button" class="btn btn-info btn-sm" onclick="requestNotificationPermission()">
+                                                <i class="fas fa-bell me-2"></i>알림 권한 요청
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 계정 관리 섹션 -->
+                        <div class="col-12">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-cog me-2"></i>계정 관리
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'accounts:profile_update' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-user-edit me-2 text-primary"></i>
+                                        프로필 정보 수정
+                                    </div>
+                                    <i class="fas fa-chevron-right text-muted"></i>
+                                </a>
+                                <a href="{% url 'account_email' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-envelope me-2 text-primary"></i>
+                                        이메일 관리
+                                    </div>
+                                    <i class="fas fa-chevron-right text-muted"></i>
+                                </a>
+                                <a href="{% url 'account_change_password' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-key me-2 text-primary"></i>
+                                        비밀번호 변경
+                                    </div>
+                                    <i class="fas fa-chevron-right text-muted"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- 서비스 섹션 -->
+                        <div class="col-12">
+                            <h5 class="text-success mb-3">
+                                <i class="fas fa-heart me-2"></i>서비스
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'wellness_checkin:daily_checkin_input' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-clipboard-list me-2 text-success"></i>
+                                        웰니스 체크인
+                                    </div>
+                                    <i class="fas fa-chevron-right text-muted"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- 계정 삭제 섹션 -->
+                        <div class="col-12">
+                            <h5 class="text-danger mb-3">
+                                <i class="fas fa-exclamation-triangle me-2"></i>계정 관리
+                            </h5>
+                            <div class="list-group mb-4">
+                                <a href="{% url 'accounts:user_delete' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center text-danger">
+                                    <div>
+                                        <i class="fas fa-user-times me-2"></i>
+                                        회원탈퇴
+                                    </div>
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 로그아웃 버튼 -->
+                    <div class="text-center mt-4">
+                        <a href="{% url 'account_logout' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-sign-out-alt me-2"></i>로그아웃
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- 알림 관련 JavaScript -->
+<script>
+// 알림 권한 요청
+function requestNotificationPermission() {
+    if ('Notification' in window) {
+        Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+                // 권한이 허용되면 FCM 토큰 등록
+                registerFCMToken();
+                showAlert('알림 권한이 허용되었습니다!', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert('알림 권한이 거부되었습니다. 브라우저 설정에서 수동으로 허용해주세요.', 'warning');
+            }
+        });
+    } else {
+        showAlert('이 브라우저는 알림을 지원하지 않습니다.', 'warning');
+    }
+}
+
+// FCM 토큰 등록
+function registerFCMToken() {
+    // Firebase Messaging에서 토큰을 가져와서 서버에 등록
+    if (typeof window.messaging !== 'undefined') {
+        // Firebase 함수들을 동적으로 import
+        import('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js')
+        .then(({ getToken }) => {
+            return getToken(window.messaging, { 
+                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
+            });
+        })
+        .then((currentToken) => {
+            if (currentToken) {
+                sendTokenToServer(currentToken);
+            }
+        })
+        .catch((err) => {
+            console.error('토큰 가져오기 실패:', err);
+        });
+    } else {
+        showAlert('Firebase가 초기화되지 않았습니다. 페이지를 새로고침해주세요.', 'warning');
+    }
+}
+
+// 토큰을 서버에 전송
+function sendTokenToServer(token) {
+    fetch('/api/register-fcm-token/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({ 
+            token: token, 
+            name: navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser' 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('토큰 등록 성공:', data);
+    })
+    .catch(error => {
+        console.error('토큰 등록 실패:', error);
+    });
+}
+
+// 테스트 알림 보내기
+function testNotification() {
+    fetch(`/api/send-test-notification/?user_id={{ user.id }}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showAlert('테스트 알림을 보냈습니다!', 'success');
+        } else {
+            showAlert('테스트 알림 전송에 실패했습니다.', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('테스트 알림 오류:', error);
+        showAlert('테스트 알림 전송 중 오류가 발생했습니다.', 'danger');
+    });
+}
+
+// 알림 토글 처리
+document.getElementById('notificationToggle').addEventListener('change', function() {
+    if (this.checked) {
+        requestNotificationPermission();
+    } else {
+        // 알림 비활성화 처리 (선택사항)
+        showAlert('알림을 비활성화하려면 브라우저 설정에서 권한을 취소해주세요.', 'info');
+    }
+});
+
+// CSRF 토큰 가져오기
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 알림 표시 함수
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    // 5초 후 자동 제거
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
 {% endblock %} 

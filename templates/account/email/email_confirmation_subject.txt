@@ -1,0 +1,4 @@
+{% load i18n %}
+{% autoescape off %}
+{% blocktrans %}블루밍스윔 이메일 인증{% endblocktrans %}
+{% endautoescape %} 

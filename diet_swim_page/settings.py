@@ -57,6 +57,10 @@ INSTALLED_APPS = [
     'accounts',
     'wellness_checkin',
     'notification',
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
 ]
 
 MIDDLEWARE = [
@@ -68,6 +72,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'diet_swim_page.urls'
@@ -214,7 +219,7 @@ if not firebase_admin._apps: # 이미 초기화된 앱이 없는 경우에만 �
 
     # 환경 변수가 없고 DEBUG 모드일 경우 파일 사용 (로컬 개발용)
     elif DEBUG:
-        FIREBASE_CREDENTIALS_PATH = os.path.join(BASE_DIR, 'blooming-swim-firebase-adminsdk-fbsvc-804f65cee1.json')
+        FIREBASE_CREDENTIALS_PATH = os.path.join(BASE_DIR, 'service-account.json')
         if os.path.exists(FIREBASE_CREDENTIALS_PATH):
             try:
                 cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
@@ -236,3 +241,34 @@ if not firebase_admin._apps: # 이미 초기화된 앱이 없는 경우에만 �
     else: # 환경 변수도 없고 DEBUG도 False일 때 (프로덕션 환경에서 발생 시 문제)
         print("CRITICAL ERROR: Firebase Admin SDK could not be initialized. Neither environment variable nor local file found.")
         raise # 배포 환경에서는 이 상황을 허용하지 않음
+
+SITE_ID = 1
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# Allauth settings (updated for latest version)
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+ACCOUNT_EMAIL_VERIFICATION = "none"  # 이메일 인증을 선택사항으로 변경
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+LOGIN_REDIRECT_URL = "/"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"
+ACCOUNT_LOGOUT_ON_GET = True  # 로그아웃 시 확인 페이지 없이 바로 로그아웃
+ACCOUNT_FORMS = {
+    'signup': 'accounts.forms.CustomSignupForm',
+}
+
+# HTML Email settings for allauth
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[블루밍스윔] "
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = "none"  # 이메일 인증을 선택사항으로 변경
+ACCOUNT_AUTHENTICATION_METHOD = "username_email"
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_USERNAME_MIN_LENGTH = 3
+ACCOUNT_USERNAME_BLACKLIST = ['admin', 'administrator', 'root', 'user', 'test', 'guest']
+
+# Email template settings
+ACCOUNT_EMAIL_TEMPLATE_EXTENSION = "html"

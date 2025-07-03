@@ -38,7 +38,6 @@
                     <div class="text-muted mb-2" style="font-size: 0.9em;">
                         각 습관별 5일 평균 점수와 체중지수의 변화를 비교해보세요.<br>
                         <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#28a745; margin-right:4px; vertical-align:middle;"></span>체중감소에 도움
-                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#dc3545; margin:0 4px 0 12px; vertical-align:middle;"></span>체중증가에 영향
                         <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:#cccccc; margin:0 4px 0 12px; vertical-align:middle;"></span>유의미하지 않음
                     </div>
                     <hr class="my-3">
@@ -76,26 +75,9 @@
                     당신의 생활습관은 <b>약 {{ best_lag }}일 후</b>에 체중에 반영되는 경향이 있어요.<br>
                 </div>
                 {% endif %}
-                <div class="text-muted mb-2" style="font-size: 0.9em;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="d-flex align-items-center gap-1">
-                            <div style="width: 12px; height: 12px; background-color: #28a745; border-radius: 2px;"></div>
-                            <span>체중 감소에 도움되는 습관</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <div style="width: 12px; height: 12px; background-color: #dc3545; border-radius: 2px;"></div>
-                            <span>체중 증가에 영향을 주는 습관</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <div style="width: 12px; height: 12px; background-color: #cccccc; border-radius: 2px;"></div>
-                            <span>유의미하지 않은 습관</span>
-                        </div>
-                    </div>
-                </div>
                 <canvas id="insightChart" height="120"></canvas>
                 <div class="row mt-4">
-                    <div class="col-md-6">
-                        <h6 class="text-success">긍정적 영향 요인</h6>
+                    <div class="col-12">
                         <div class="d-flex flex-wrap gap-2 mb-2">
                         {% for c in ai_insight.positive %}
                             <span class="badge bg-success" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
@@ -104,19 +86,6 @@
                         {% endfor %}
                         </div>
                         {% for c in ai_insight.positive %}
-                        <div class="text-muted mb-1" style="font-size: 0.85em;">• {{ c.action_text }}</div>
-                        {% endfor %}
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-danger">주의해야 할 요인</h6>
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                        {% for c in ai_insight.negative %}
-                            <span class="badge bg-danger" style="font-size:1em; padding:0.7em 1.1em;">{{ c.badge }}</span>
-                        {% empty %}
-                            <span>없음</span>
-                        {% endfor %}
-                        </div>
-                        {% for c in ai_insight.negative %}
                         <div class="text-muted mb-1" style="font-size: 0.85em;">• {{ c.action_text }}</div>
                         {% endfor %}
                     </div>
@@ -224,19 +193,10 @@ wellnessQuestions.forEach(function(q, idx) {
     });
 });
 {% if ai_insight %}
-// AI 인사이트 (회귀계수)
-const insightLabels = [
-  ...JSON.parse(document.getElementById('insight-labels-positive').textContent),
-  ...JSON.parse(document.getElementById('insight-labels-negative').textContent)
-];
-const insightData = [
-  ...JSON.parse(document.getElementById('insight-data-positive').textContent),
-  ...JSON.parse(document.getElementById('insight-data-negative').textContent)
-];
-const insightColors = [
-  ...Array(JSON.parse(document.getElementById('insight-labels-positive').textContent).length).fill('#28a745'),
-  ...Array(JSON.parse(document.getElementById('insight-labels-negative').textContent).length).fill('#dc3545')
-];
+// AI 인사이트 (회귀계수) - 체중감소에 도움이 되는 요소만
+const insightLabels = JSON.parse(document.getElementById('insight-labels-positive').textContent);
+const insightData = JSON.parse(document.getElementById('insight-data-positive').textContent);
+const insightColors = Array(insightLabels.length).fill('#28a745');
 const insightCtx = document.getElementById('insightChart').getContext('2d');
 new Chart(insightCtx, {
     type: 'bar',

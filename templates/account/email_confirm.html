@@ -1,0 +1,52 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+{% load account allauth %}
+
+{% block head_title %}
+    {% trans "Confirm Email Address" %}
+{% endblock head_title %}
+
+{% block inner_content %}
+    <div class="text-center mb-4">
+        <h2 class="h3 mb-3">{% trans "Confirm Email Address" %}</h2>
+    </div>
+          
+    {% if confirmation %}
+        {% user_display confirmation.email_address.user as user_display %}
+        {% if can_confirm %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                {% blocktrans with confirmation.email_address.email as email %}Please confirm that <a href="mailto:{{ email }}">{{ email }}</a> is an email address for user {{ user_display }}.{% endblocktrans %}
+            </div>
+            
+            <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+                {% csrf_token %}
+                {{ redirect_field }}
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% trans 'Confirm' %}
+                    </button>
+                </div>
+            </form>
+        {% else %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {% blocktrans %}Unable to confirm {{ email }} because it is already confirmed by a different account.{% endblocktrans %}
+            </div>
+        {% endif %}
+    {% else %}
+        {% url 'account_email' as email_url %}
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {% blocktrans %}This email confirmation link expired or is invalid. Please <a href="{{ email_url }}">issue a new email confirmation request</a>.{% endblocktrans %}
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{% url 'account_login' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-sign-in-alt me-2"></i>
+                {% trans "Back to Sign In" %}
+            </a>
+        </div>
+    {% endif %}
+{% endblock %} 

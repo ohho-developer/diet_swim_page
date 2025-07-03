@@ -1,0 +1,20 @@
+{% extends "account/email/base_message.html" %}
+{% load account %}
+{% load i18n %}
+
+{% block content %}
+{% autoescape off %}
+<p>{% blocktranslate %}다음과 같은 변경사항이 귀하의 계정에 적용되었기 때문에 이 메일을 받고 있습니다:{% endblocktranslate %}</p>
+
+{% block notification_message %}
+{% endblock notification_message %}
+
+<p>{% blocktranslate %}이 변경사항을 인식하지 못한다면 즉시 적절한 보안 조치를 취하시기 바랍니다. 귀하의 계정에 대한 변경사항은 다음에서 발생했습니다:{% endblocktranslate %}</p>
+
+<ul style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+    <li><strong>IP 주소:</strong> {{ip}}</li>
+    <li><strong>브라우저:</strong> {{user_agent}}</li>
+    <li><strong>날짜:</strong> {{timestamp}}</li>
+</ul>
+{% endautoescape %}
+{% endblock %} 
