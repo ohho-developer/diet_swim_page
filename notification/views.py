@@ -102,7 +102,7 @@ class ScheduledNotificationTrigger(APIView):
                 body = f"{request.user.username}님, 테스트 알림입니다!"
                 data = {"type": "test_notification", "user_id": str(request.user.id)}
                 
-                if send_fcm_notification(request.user, title, body, data):
+                if send_fcm_notification(request.user, title, body, data, data_only=True):
                     return Response({
                         'message': 'Test notification sent successfully',
                         'users_notified': 1,

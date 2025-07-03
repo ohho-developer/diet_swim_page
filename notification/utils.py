@@ -4,13 +4,14 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-def send_fcm_notification(user, title, body, data=None):
+def send_fcm_notification(user, title, body, data=None, data_only=False):
     """
     특정 사용자에게 FCM 푸시 알림을 보냅니다.
     :param user: 알림을 보낼 Django User 객체
     :param title: 알림 제목
     :param body: 알림 내용
     :param data: (선택 사항) 알림과 함께 보낼 추가 데이터 (딕셔너리 형태)
+    :param data_only: True면 notification 필드 없이 data-only 메시지로 전송
     """
     # 해당 사용자의 활성화된 모든 FCM 디바이스 토큰을 가져옵니다.
     devices = FCMDevice.objects.filter(user=user, active=True)
@@ -32,14 +33,26 @@ def send_fcm_notification(user, title, body, data=None):
 
     print(f"[DEBUG] Payload data: {payload_data}")
 
-    message = messaging.MulticastMessage(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data=payload_data,  # data는 문자열-문자열 맵이어야 합니다.
-        tokens=registration_ids,
-    )
+    if data_only:
+        # data-only 메시지
+        message = messaging.MulticastMessage(
+            data={
+                "title": title,
+                "body": body,
+                **{k: str(v) for k, v in payload_data.items()}
+            },
+            tokens=registration_ids,
+        )
+    else:
+        # 기존 방식 (notification 필드 포함)
+        message = messaging.MulticastMessage(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            data=payload_data,
+            tokens=registration_ids,
+        )
 
     try:
         response = messaging.send_each_for_multicast(message)
