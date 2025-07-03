@@ -1,30 +1,26 @@
 name: Deploy to cloudtype
-
 on:
   push:
     branches:
       - main
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
       - name: Connect deploy key
         uses: cloudtype-github-actions/connect@v1
         with:
           token: ${{ secrets.CLOUDTYPE_TOKEN }}
           ghtoken: ${{ secrets.GHP_TOKEN }}
-
       - name: Deploy
         uses: cloudtype-github-actions/deploy@v1
         with:
           token: ${{ secrets.CLOUDTYPE_TOKEN }}
           project: ohho.developer/work-identity
           stage: main
-          yaml: |-
+          yaml: >
             name: diet-swim-page
 
             app: python@3.11
@@ -48,12 +44,9 @@ jobs:
                 - name: DB_PORT
                   value: "30159"
                 - name: FIREBASE_SERVICE_ACCOUNT_KEY
-                  value: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-                - name: CRON_SECRET_KEY
-                  value: ${{ secrets.CRON_SECRET_KEY }}
-              ports: 8000
-              start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
+                  value: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAi
               buildenv: []
+              start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
             context:
               git:
                 url: git@github.com:${{ github.repository }}.git
