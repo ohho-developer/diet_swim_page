@@ -24,7 +24,7 @@
                                 <i class="fas fa-bell me-2"></i>알림 설정
                             </h5>
                             <div class="card border-info">
-                                <div class="card-body">
+        <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
                                         <div>
                                             <h6 class="mb-1">푸시 알림</h6>
@@ -50,8 +50,8 @@
                                             <small>등록된 기기: {{ user.fcm_devices.count }}개</small>
                                         </div>
                                         <div class="d-grid">
-                                            <button type="button" class="btn btn-outline-info btn-sm" onclick="testNotification()">
-                                                <i class="fas fa-paper-plane me-2"></i>테스트 알림 보내기
+                                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="triggerScheduledNotification()">
+                                                <i class="fas fa-clock me-2"></i>테스트 알림 보내기
                                             </button>
                                         </div>
                                     {% else %}
@@ -156,14 +156,49 @@ function requestNotificationPermission() {
                 registerFCMToken();
                 showAlert('알림 권한이 허용되었습니다!', 'success');
                 setTimeout(() => location.reload(), 1500);
-            } else {
+            } else if (permission === 'denied') {
                 showAlert('알림 권한이 거부되었습니다. 브라우저 설정에서 수동으로 허용해주세요.', 'warning');
+                // 토글을 다시 끄기
+                document.getElementById('notificationToggle').checked = false;
+            } else {
+                showAlert('알림 권한 요청이 취소되었습니다.', 'info');
+                // 토글을 다시 끄기
+                document.getElementById('notificationToggle').checked = false;
             }
         });
     } else {
         showAlert('이 브라우저는 알림을 지원하지 않습니다.', 'warning');
+        // 토글을 다시 끄기
+        document.getElementById('notificationToggle').checked = false;
     }
 }
+
+// 브라우저 권한 상태 확인
+function checkNotificationPermission() {
+    if ('Notification' in window) {
+        const permission = Notification.permission;
+        const toggle = document.getElementById('notificationToggle');
+        
+        if (permission === 'granted') {
+            // 권한이 있지만 FCM 토큰이 없을 수 있음
+            if (!toggle.checked) {
+                toggle.checked = true;
+            }
+        } else if (permission === 'denied') {
+            // 권한이 거부된 경우
+            toggle.checked = false;
+            showAlert('브라우저에서 알림 권한이 거부되었습니다. 설정에서 허용해주세요.', 'warning');
+        } else {
+            // 권한이 요청되지 않은 경우
+            toggle.checked = false;
+        }
+    }
+}
+
+// 페이지 로드 시 권한 상태 확인
+document.addEventListener('DOMContentLoaded', function() {
+    checkNotificationPermission();
+});
 
 // FCM 토큰 등록
 function registerFCMToken() {
@@ -211,24 +246,31 @@ function sendTokenToServer(token) {
     });
 }
 
-// 테스트 알림 보내기
-function testNotification() {
-    fetch(`/api/send-test-notification/?user_id={{ user.id }}`, {
-        method: 'GET',
+
+
+// 스케줄된 알림 트리거 (모든 사용자에게)
+function triggerScheduledNotification() {
+    fetch('/api/cron/send-daily-message/', {
+        method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             'X-CSRFToken': getCookie('csrftoken'),
         }
     })
     .then(response => {
         if (response.ok) {
-            showAlert('테스트 알림을 보냈습니다!', 'success');
+            return response.json();
         } else {
-            showAlert('테스트 알림 전송에 실패했습니다.', 'danger');
+            throw new Error('Failed to trigger scheduled notification');
         }
     })
+    .then(data => {
+        showAlert('테스트 알림을 보냈습니다!', 'success');
+        console.log('Test notification result:', data);
+    })
     .catch(error => {
-        console.error('테스트 알림 오류:', error);
-        showAlert('테스트 알림 전송 중 오류가 발생했습니다.', 'danger');
+        console.error('스케줄된 알림 트리거 오류:', error);
+        showAlert('스케줄된 알림 전송에 실패했습니다.', 'danger');
     });
 }
 
@@ -237,10 +279,32 @@ document.getElementById('notificationToggle').addEventListener('change', functio
     if (this.checked) {
         requestNotificationPermission();
     } else {
-        // 알림 비활성화 처리 (선택사항)
-        showAlert('알림을 비활성화하려면 브라우저 설정에서 권한을 취소해주세요.', 'info');
+        // 서버에서 FCM 토큰 삭제 요청
+        deleteFCMToken();
+        showAlert('알림이 비활성화되었습니다. 브라우저 설정에서도 권한을 취소하시면 더 확실합니다.', 'info');
     }
 });
+
+// FCM 토큰 삭제 함수
+function deleteFCMToken() {
+    fetch('/api/delete-fcm-token/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('토큰 삭제 성공:', data);
+        // 페이지 새로고침하여 상태 업데이트
+        setTimeout(() => location.reload(), 1000);
+    })
+    .catch(error => {
+        console.error('토큰 삭제 실패:', error);
+        showAlert('토큰 삭제 중 오류가 발생했습니다.', 'danger');
+    });
+}
 
 // CSRF 토큰 가져오기
 function getCookie(name) {

@@ -20,6 +20,7 @@ def send_fcm_notification(user, title, body, data=None):
 
     registration_ids = [device.registration_id for device in devices]
     print(f"[DEBUG] Sending FCM to user: {user.username}, registration_ids: {registration_ids}")
+    print(f"[DEBUG] Notification title: {title}, body: {body}")
 
     # data는 문자열-문자열 맵이어야 합니다.
     # 기존 data가 있다면 병합하고, 없다면 새로 만듭니다.
@@ -29,6 +30,7 @@ def send_fcm_notification(user, title, body, data=None):
     # 중요: URL은 반드시 문자열이어야 합니다.
     payload_data['url'] = 'https://bloomingswim.designusplus.com' # 여기에 원하는 URL을 직접 지정
 
+    print(f"[DEBUG] Payload data: {payload_data}")
 
     message = messaging.MulticastMessage(
         notification=messaging.Notification(
@@ -45,13 +47,13 @@ def send_fcm_notification(user, title, body, data=None):
         failure_count = sum(1 for r in response.responses if not r.success)
         print(f"Successfully sent message: {success_count} successful, {failure_count} failed")
 
-        # 실패한 토큰 처리 (선택 사항):
-        if failure_count > 0:
-            for i, resp in enumerate(response.responses):
-                if not resp.success:
-                    failed_token = registration_ids[i]
-                    print(f"Failed to send to token {failed_token}: {resp.exception}")
-                    FCMDevice.objects.filter(registration_id=failed_token).update(active=False)
+        # 각 응답에 대한 상세 정보 출력
+        for i, resp in enumerate(response.responses):
+            if resp.success:
+                print(f"[DEBUG] Token {i} ({registration_ids[i][:20]}...): SUCCESS")
+            else:
+                print(f"[DEBUG] Token {i} ({registration_ids[i][:20]}...): FAILED - {resp.exception}")
+                FCMDevice.objects.filter(registration_id=registration_ids[i]).update(active=False)
 
         return True
     except Exception as e:

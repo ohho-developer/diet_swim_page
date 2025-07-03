@@ -24,18 +24,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialize environ
 env = environ.Env()
-env.read_env(BASE_DIR / ".env")
+# .env 파일이 있으면 읽고, 없으면 환경변수만 사용
+env.read_env(BASE_DIR / ".env", overwrite=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env.str("SECRET_KEY")
+SECRET_KEY = env.str("SECRET_KEY", default=os.environ.get("SECRET_KEY"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool("DEBUG", default=True)
+DEBUG = env.bool("DEBUG", default=os.environ.get("DEBUG", "True").lower() == "true")
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+# 디버그: 환경변수 확인 (배포 시 확인용)
+if not DEBUG:
+    print(f"Production Environment Variables:")
+    print(f"SECRET_KEY: {'SET' if os.environ.get('SECRET_KEY') else 'NOT SET'}")
+    print(f"DB_NAME: {os.environ.get('DB_NAME', 'NOT SET')}")
+    print(f"DB_HOST: {os.environ.get('DB_HOST', 'NOT SET')}")
+    print(f"ALLOWED_HOSTS: {os.environ.get('ALLOWED_HOSTS', 'NOT SET')}")
+    print(f"FIREBASE_SERVICE_ACCOUNT_KEY: {'SET' if os.environ.get('FIREBASE_SERVICE_ACCOUNT_KEY') else 'NOT SET'}")
+
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=os.environ.get("ALLOWED_HOSTS", "").split(",") if os.environ.get("ALLOWED_HOSTS") else [])
 CSRF_TRUSTED_ORIGINS = ['https://port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app','https://bloomingswim.designusplus.com']
 
 
@@ -109,11 +119,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME'),
-            'USER': os.getenv('DB_USER'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST'),
-            'PORT': os.getenv('DB_PORT'),
+            'NAME': env.str('DB_NAME', default=os.environ.get('DB_NAME')),
+            'USER': env.str('DB_USER', default=os.environ.get('DB_USER')),
+            'PASSWORD': env.str('DB_PASSWORD', default=os.environ.get('DB_PASSWORD')),
+            'HOST': env.str('DB_HOST', default=os.environ.get('DB_HOST')),
+            'PORT': env.str('DB_PORT', default=os.environ.get('DB_PORT')),
             'OPTIONS': {
                 'options': '-c search_path=schema_b'
             }
@@ -177,12 +187,12 @@ else:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email settings
-EMAIL_HOST = env.str("EMAIL_HOST", default=None)
-EMAIL_PORT = env.int("EMAIL_PORT", default=587)
-EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default=None)
-EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default=None)
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
+EMAIL_HOST = env.str("EMAIL_HOST", default=os.environ.get("EMAIL_HOST"))
+EMAIL_PORT = env.int("EMAIL_PORT", default=int(os.environ.get("EMAIL_PORT", "587")))
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default=os.environ.get("EMAIL_HOST_USER"))
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default=os.environ.get("EMAIL_HOST_PASSWORD"))
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=os.environ.get("EMAIL_USE_TLS", "True").lower() == "true")
+DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default=os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER))
 
 
 SESSION_COOKIE_AGE = 1209600  # 2주
