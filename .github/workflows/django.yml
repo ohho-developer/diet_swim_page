@@ -44,9 +44,12 @@ jobs:
                 - name: DB_PORT
                   value: "30159"
                 - name: FIREBASE_SERVICE_ACCOUNT_KEY
-                  value: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAi
+                  value: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+                - name: CRON_SECRET_KEY
+                  value: ${{ secrets.CRON_SECRET_KEY }}
               buildenv: []
               start: gunicorn diet_swim_page.wsgi:application --bind 0.0.0.0:8000
+              
             context:
               git:
                 url: git@github.com:${{ github.repository }}.git
