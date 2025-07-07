@@ -10,14 +10,13 @@ from django.contrib.auth.decorators import login_required
 @csrf_exempt
 @require_POST
 def email_subscribe(request):
-    email = request.POST.get('email')
-    if not email:
-        return JsonResponse({'success': False, 'message': '이메일을 입력해주세요.'})
-    # 실제로는 DB 저장 등 추가 가능
+    contact = request.POST.get('contact')
+    if not contact:
+        return JsonResponse({'success': False, 'message': '이메일 또는 전화번호를 입력해주세요.'})
     try:
         send_mail(
             '[DietSwim] 상담 신청이 접수되었습니다',
-            f'상담 신청 이메일: {email}',
+            f'상담 신청 연락처: {contact}',
             settings.DEFAULT_FROM_EMAIL,
             ['hochul.kim@designusplus.com'],
         )

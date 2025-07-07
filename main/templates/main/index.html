@@ -479,13 +479,10 @@
             </div>
         </div>
         <div class="d-flex justify-content-center align-items-center">
-            <img data-src="{% static 'img/main_img_24.png' %}" alt="..." class="img-fluid lazy-image" style="width: 50%; height: 100%;">
-        </div>
-        <div class="text-center h5" style="color: #fff; font-family: 'Anton', sans-serif; font-weight: 900;">
-            *오픈 이벤트 적용시
+            <img data-src="{% static 'img/main_img_24.png' %}" alt="..." class="img-fluid lazy-image" style="width: 80%; height: 100%;">
         </div>
         <div style="height: 300px; width: 10%;"></div>
-        <div class="m-5 d-flex justify-content-center align-items-center" style="color: #fff">
+        <div class="mt-5 mx-5 d-flex justify-content-center align-items-center" style="color: #fff">
             <div style="width: 50%; background-color: #0152a8">
                 <div class="p-5 text-center flex-fill" style="background-image:url('{% static 'img/main_img_25.png' %}'); background-size: cover; background-position: center; height: 200px;">
                     <div class="fw-bold h5">
@@ -508,11 +505,15 @@
                 </div>
             </div>
         </div>
-        <div style="height: 30px; width: 10%;"></div>
+        <div class="ms-5 ps-3 mt-2 h5"style="color: #fff">
+            *8회당 최대 2달까지 사용가능합니다<br>
+            *수업시간은 총 60분으로 진행됩니다.
+        </div>
+        <div style="height: 100px; width: 10%;"></div>
     </section>
 
     <!-- tenth block -->
-     <section class="py-5" style="background-color: #0152a8">
+     <section class="pt-5" style="background-color: #0152a8">
         <div class="text-center" style="color: #fff;">
             <div class="fw-bold" style="font-size: 2rem; font-weight: 300; font-family: 'Pretendard">
                 FAQ
@@ -533,6 +534,9 @@
                         </li>
                         <li>
                             AI 습관 트래킹을 위해 저희 웹사이트에 가입한 뒤, 매일 1분 습관 리스트를 체크해주시기 바랍니다.
+                        </li>
+                        <li>
+                            카드 및 현금 영수증 결제시, 부가세 별도입니다.
                         </li>
                     </ul>
                 </div>
@@ -559,18 +563,21 @@
                 <div class="px-4 pt-3 d-flex align-items-center" style="background-color: #F7F4F0; height: 150px; width: 75%;">
                     <ul>
                         <li>
-                            취소 또는 환불을 원하시면, 강사를 통해 진행하시면 됩니다.
+                            수업취소 또는 환불을 원하시면, 강사를 통해 진행하시면 됩니다.
                         </li>
                         <li>
-                            환불의 경우, 수강한 회차의 금액만큼을 제외하고 환불됩니다.
+                            당일 수업 취소는 수강권 1회 차감됩니다.
+                        </li>
+                        <li>
+                            환불의 경우, 수강한 회차의 원가만큼을 제외하고 환불됩니다.
                         </li>
                     </ul>
                 </div>
             </div>
         </div>
-        <div class="text-center" style="color: #fff; background-color: #0054BB">
+        <div class="text-center mt-5" style="color: #fff; background-color: #0054BB">
             <div>
-                <!-- 연락처 넣을 예정 -->
+                <img data-src="{% static 'img/main_img_27.png' %}" alt="..." class="img-fluid lazy-image" style="width: 100%; height: 100%;">
             </div>
         </div>
      </section>
@@ -585,18 +592,41 @@
                 BLOOMING SWIM
             </div>
         </div>
+        <!-- 안내 및 문의/오시는 길 섹션 -->
+        
+        <div class="row justify-content-center mb-4 mx-3">
+            <div class="col-md-8">
+                <div class="p-3 mt-5 mb-5" style="border: 2px solid #0152a8; border-radius: 8px;">
+                    <div class="fw-bold mb-2" style="color: #0152a8; font-size: 1.2rem;">수업 문의</div>
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="fw-bold me-2" style="color: #0152a8;">인스타</span>
+                        <span style="font-size: 0.98rem;"><a href="https://www.instagram.com/bloomingswim/" class="text-decoration-none link-body-emphasis">https://www.instagram.com/bloomingswim/</a></span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="fw-bold me-2" style="color: #0152a8;">카카오톡</span>
+                        <span style="font-size: 0.98rem;"><a href="http://pf.kakao.com/_AkJFn" class="text-decoration-none link-body-emphasis">http://pf.kakao.com/_AkJFn</a></span>
+                    </div>
+                </div>
+                <div class="p-3" style="border: 2px solid #0152a8; border-radius: 8px;">
+                    <div class="fw-bold mb-2" style="color: #0152a8; font-size: 1.2rem;">오시는 길</div>
+                    <div class="mb-1" style="font-size: 0.98rem;"><span class="fw-bold" style="color: #0152a8;">지하철 이용 시</span> 재송역 1번 출구에서 10분거리에 있습니다.</div>
+                    <div class="mb-1" style="font-size: 0.98rem;"><span class="fw-bold" style="color: #0152a8;">자동차 이용 시</span> 수영장 앞 골목길에 주차하시면 됩니다.</div>
+                    <div class="mt-2" style="font-size: 0.95rem; color: #666;">*자세한 수영장 주소는 전화 또는 이메일, DM 상담을 통해 알려드리겠습니다.</div>
+                </div>
+            </div>
+        </div>
         <!-- 이메일 수집 폼 섹션 (Email Collection Form) -->
-        <div id="contact" class="py-4 py-md-5 fade-in-section">
+        <div id="contact" class="py-4 fade-in-section">
             <div class="container">
                 <div class="row justify-content-center">
-                    <div class="col-md-8 col-lg-6">
-                        <div class="card shadow rounded-5 p-4">
+                    <div class="col-md-8 col-lg-8">
+                        <div class="card shadow rounded-4 p-4 mx-4">
                             <div class="card-body">
                                 <form id="subscribeForm">
                                     <div class="mb-3">
-                                        <label for="emailInput" class="form-label visually-hidden">이메일 주소</label>
-                                        <input type="email" class="form-control rounded-pill" id="emailInput"
-                                            placeholder="이메일 주소를 입력해주세요" required>
+                                        <label for="contactInput" class="form-label visually-hidden">이메일 또는 전화번호</label>
+                                        <input type="text" class="form-control rounded-pill" id="contactInput"
+                                            placeholder="이메일 또는 전화번호를 입력해주세요" required>
                                     </div>
                                     <div class="mb-3 form-check">
                                         <input type="checkbox" class="form-check-input" id="privacyCheck" required>
@@ -605,7 +635,7 @@
                                             동의합니다.</label>
                                     </div>
                                     <div class="d-grid">
-                                        <button type="submit" class="btn btn-primary btn-lg rounded-pill">무료 상담 신청하기</button>
+                                        <button type="submit" class="btn btn-success btn-lg rounded-pill">무료 상담 신청하기</button>
                                     </div>
                                     <!-- Message area for success/failure -->
                                     <div id="formMessage" class="mt-3 text-center d-none"></div>
@@ -658,7 +688,7 @@
     if (subscribeForm) {
         subscribeForm.addEventListener('submit', async function (e) {
             e.preventDefault();
-            const email = document.getElementById('emailInput').value;
+            const contact = document.getElementById('contactInput').value;
             const privacyCheck = document.getElementById('privacyCheck');
             const formMessage = document.getElementById('formMessage');
             formMessage.classList.add('d-none');
@@ -668,10 +698,16 @@
                 formMessage.classList.add('text-danger');
                 return;
             }
+            if (!contact) {
+                formMessage.textContent = '이메일 또는 전화번호를 입력해주세요.';
+                formMessage.classList.remove('d-none');
+                formMessage.classList.add('text-danger');
+                return;
+            }
             const res = await fetch('/subscribe/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `email=${encodeURIComponent(email)}`
+                body: `contact=${encodeURIComponent(contact)}`
             });
             const data = await res.json();
             formMessage.textContent = data.message;
