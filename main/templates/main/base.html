@@ -162,73 +162,83 @@
             word-break: keep-all;
             overflow-wrap: break-word;
         }
+        .container {
+            max-width: 900px;
+            min-width: 580px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 650px) {
+            .container {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                min-width: 650 !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+        }
+    }
     </style>
 </head>
 <body>
     <!-- Navigation Bar (Optional, can be added later) -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'index' %}">Blooming Swim</a>
+    
+    <div class="container">
+        <nav class="navbar sticky-top px-4" style="background-color: #0152a8;">
+            
+            <a class="navbar-brand text-white" style="font-family: 'Anton', sans-serif; font-size: 2rem;" href="{% url 'index' %}">
+                Blooming Swim
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    {% comment %} {% if user.is_authenticated %} {% endcomment %}
-                        {% comment %} <li class="nav-item">
-                            <a class="nav-link" href="{% url 'contents:content_list' %}">콘텐츠</a>
-                        </li> {% endcomment %}
-                        {% if user.is_authenticated %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-user me-1"></i>{{ user.username }}
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                        <i class="fas fa-user-circle me-2"></i>마이페이지
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{% url 'account_email' %}">
-                                        <i class="fas fa-envelope me-2"></i>이메일 관리
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
-                                        <i class="fas fa-key me-2"></i>비밀번호 변경
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
-                                        <i class="fas fa-clipboard-list me-2"></i>설문입력
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
-                                        <i class="fas fa-sign-out-alt me-2"></i>로그아웃
-                                    </a></li>
-                                </ul>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'account_login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
-                            </li>
-                            <li class="nav-item"><a class="nav-link" href="{% url 'account_signup' %}">회원가입</a></li>
-                        {% endif %}
-                    {% comment %} {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'login' %}">로그인</a>
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user me-1"></i>{{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                    <i class="fas fa-user-circle me-2"></i>마이페이지
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'account_email' %}">
+                                    <i class="fas fa-envelope me-2"></i>이메일 관리
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
+                                    <i class="fas fa-key me-2"></i>비밀번호 변경
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
+                                    <i class="fas fa-clipboard-list me-2"></i>설문입력
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>로그아웃
+                                </a></li>
+                            </ul>
                         </li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'accounts:signup' %}">회원가입</a></li>
-                    {% endif %} {% endcomment %}
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'account_login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
+                        </li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'account_signup' %}">회원가입</a></li>
+                    {% endif %}
                 </ul>
+            
                 <div class="ms-auto">
                     <a class="btn btn-success" href="{% url 'index' %}#contact">상담신청</a>
+                </div>
             </div>
-        </div>
-    </nav>
-
-    <div class="container mt-5">
+        </nav>
+    
+    <div style="min-width: 580px;">
         {% block content %}{% endblock %}
     </div>
-
     <!-- Footer - Updated -->
-    <footer class="footer mt-auto my-5 py-5 bg-light text-dark"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
-        <div class="container">
+    <footer class="footer bg-light text-dark p-5"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
+        <div style="min-width: 580px;">
             <div class="row">
                 <div class="col-md-4 mb-3 text-center text-md-start"> {# 회사 정보 칼럼 #}
                     <h5 class="text-dark mb-3">DietSwim</h5>
@@ -236,33 +246,15 @@
                         상호: 디자인어스플러스<br>
                         대표자명: 김호철<br>
                         사업자 등록번호: 336-07-03021<br>
-                        주소: 경기도 파주시 아동로 7, 4층 라40호호
+                        주소: 경기도 파주시 아동로 7, 4층 라40호
                     </p>
                 </div>
-                {% comment %} <div class="col-md-4 mb-3 text-center text-md-start text-dark"> {# 링크 칼럼 #}
-                    <h5 class="text-dark mb-3">바로가기</h5>
-                    <ul class="list-unstyled small">
-                        <li><a href="{% url 'index' %}#hero" class="text-dark text-decoration-none">소개</a></li>
-                        <li><a href="{% url 'index' %}#services" class="text-dark text-decoration-none">서비스</a></li>
-                        <li><a href="{% url 'index' %}#testimonials" class="text-dark text-decoration-none">고객 후기</a></li>
-                        <li><a href="{% url 'index' %}#experts" class="text-dark text-decoration-none">전문가</a></li>
-                        <li><a href="{% url 'index' %}#faq" class="text-dark text-decoration-none">FAQ</a></li>
-                        <li><a href="{% url 'index' %}#contact" class="text-dark text-decoration-none">신청하기</a></li>
-                         <li><a href="{% url 'privacy_policy' %}" class="text-dark text-decoration-none">개인정보처리방침</a></li>
-                        <li><a href="{% url 'terms' %}" class="text-dark text-decoration-none">이용약관</a></li>
-                    </ul>
-                </div> {% endcomment %}
                 <div class="col-md-4 mb-3 text-center text-md-start"> {# 연락처 및 소셜 미디어 칼럼 #}
                     <h5 class="text-dark mb-3">문의하기</h5>
                     <p class="text-muted small">
                         이메일: hochul.kim@designusplus.com<br>
                         전화: 010-8373-8201
                     </p>
-                    {% comment %} <h5 class="text-dark mt-4 mb-2">소셜 미디어</h5>
-                    <a href="#" class="text-dark me-3"><i class="fab fa-instagram fa-lg"></i></a> {# 인스타그램 아이콘 예시 #}
-                    <a href="#" class="text-dark me-3"><i class="fab fa-facebook-f fa-lg"></i></a> {# 페이스북 아이콘 예시 #}
-                    <a href="#" class="text-dark me-3"><i class="fab fa-twitter fa-lg"></i></a> {# 트위터 아이콘 예시 #} {% endcomment %}
-                     {# 필요한 다른 소셜 미디어 아이콘 추가 #}
                 </div>
             </div>
             <hr class="text-dark mt-4 mb-3"> {# 구분선 추가 #}
@@ -273,6 +265,9 @@
             </div>
         </div>
     </footer>
+</div>
+
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Font Awesome for Social Icons (Optional, or use Phosphor) -->

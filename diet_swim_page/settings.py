@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # third party apps
     'rest_framework',
+    'livereload',
     ## local apps
     'bootstrap4',
     'main',
@@ -83,6 +84,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'livereload.middleware.LiveReloadScript',
 ]
 
 ROOT_URLCONF = 'diet_swim_page.urls'
