@@ -155,6 +155,7 @@
   
     <style>
         body {
+            margin: 0; /* 브라우저 기본 여백 제거 */
             font-family: "Noto Sans KR", sans-serif;
             font-optical-sizing: auto;
             font-weight: <weight>;
@@ -162,83 +163,85 @@
             word-break: keep-all;
             overflow-wrap: break-word;
         }
+
         .container {
             max-width: 900px;
-            min-width: 650px;
             margin: 0 auto;
         }
 
-        @media (max-width: 650px) {
+        @media (max-width: 900px) {
             .container {
-                width: 100vw !important;
-                max-width: 100vw !important;
-                min-width: 650 !important;
-                padding-left: 0 !important;
-                padding-right: 0 !important;
+                width: 100%; /* 너비를 100%로 채우고 */
+                min-width: 580px;
+                padding: 0 0; /* 내부 여백으로 콘텐츠와 화면 가장자리 간격 조절 */
+                box-sizing: border-box; /* padding이 너비에 포함되도록 설정 */
             }
         }
-    }
     </style>
 </head>
 <body>
-    <!-- Navigation Bar (Optional, can be added later) -->
-    
     <div class="container">
+        <!-- Offcanvas Navbar 시작 -->
         <nav class="navbar sticky-top px-4" style="background-color: #0152a8;">
-            
             <a class="navbar-brand text-white" style="font-family: 'Anton', sans-serif; font-size: 2rem;" href="{% url 'index' %}">
-                Blooming Swim
+                BLOOMING SWIM
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-user me-1"></i>{{ user.username }}
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                    <i class="fas fa-user-circle me-2"></i>마이페이지
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'account_email' %}">
-                                    <i class="fas fa-envelope me-2"></i>이메일 관리
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
-                                    <i class="fas fa-key me-2"></i>비밀번호 변경
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
-                                    <i class="fas fa-clipboard-list me-2"></i>설문입력
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
-                                    <i class="fas fa-sign-out-alt me-2"></i>로그아웃
-                                </a></li>
-                            </ul>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'account_login' %}?next={% url 'wellness_checkin:daily_checkin_input' %}">로그인</a>
-                        </li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'account_signup' %}">회원가입</a></li>
-                    {% endif %}
-                </ul>
-            
-                <div class="ms-auto">
-                    <a class="btn btn-success" href="{% url 'index' %}#contact">상담신청</a>
+            <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title" id="offcanvasNavbarLabel">메뉴</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body">
+                    <ul class="navbar-nav ms-auto">
+                        {% if user.is_authenticated %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-user me-1"></i>{{ user.username }}
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                        <i class="fas fa-user-circle me-2"></i>마이페이지
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'account_email' %}">
+                                        <i class="fas fa-envelope me-2"></i>이메일 관리
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
+                                        <i class="fas fa-key me-2"></i>비밀번호 변경
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
+                                        <i class="fas fa-clipboard-list me-2"></i>설문입력
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
+                                        <i class="fas fa-sign-out-alt me-2"></i>로그아웃
+                                    </a></li>
+                                </ul>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" style="color: #0152a8;" href="{% url 'account_login' %}">로그인</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'account_signup' %}">회원가입</a>
+                            </li>
+                        {% endif %}
+                    </ul>
                 </div>
             </div>
+        
         </nav>
+        <!-- Offcanvas Navbar 끝 -->
     
-    <div style="min-width: 580px;">
-        {% block content %}{% endblock %}
-    </div>
-    <!-- Footer - Updated -->
-    <footer class="footer bg-light text-dark p-5"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
-        <div style="min-width: 580px;">
+        <div>
+            {% block content %}{% endblock %}
+        </div>
+
+        <!-- Footer - Updated -->
+        <footer class="footer bg-light text-dark p-5"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
             <div class="row">
                 <div class="col-md-4 mb-3 text-center text-md-start"> {# 회사 정보 칼럼 #}
                     <h5 class="text-dark mb-3">DietSwim</h5>
@@ -263,12 +266,9 @@
                     <p class="text-muted">&copy; {% now "Y" %} designusplus. All rights reserved.</p>
                 </div>
             </div>
-        </div>
-    </footer>
-</div>
-
-
-
+        </footer>
+    </div>
+</body>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Font Awesome for Social Icons (Optional, or use Phosphor) -->
      <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
@@ -409,26 +409,6 @@
             observer.observe(section);
          });
 
-
-         
-
     </script>
-    <div id="notification-status" style="margin: 1em 0; color: #198754; font-weight: bold;"></div>
-    <button id="notify-btn" onclick="requestPermissionAndGetToken(messaging, null)" style="margin-bottom: 1em;">알림 허용 요청</button>
-    <script>
-      function updateNotificationStatus() {
-        const status = Notification.permission;
-        let msg = '';
-        if (status === 'granted') msg = '알림이 허용되어 있습니다.';
-        else if (status === 'denied') msg = '알림이 차단되어 있습니다. 설정 > Safari > 알림에서 허용해야 합니다.';
-        else msg = '아직 알림 권한 요청이 이루어지지 않았습니다.';
-        document.getElementById('notification-status').innerText = msg;
-      }
-      updateNotificationStatus();
-      // 권한 상태가 바뀌면 자동 갱신 (권한 요청 후 등)
-      document.getElementById('notify-btn').addEventListener('click', function() {
-        setTimeout(updateNotificationStatus, 1000);
-      });
-    </script>
-</body>
+
 </html>

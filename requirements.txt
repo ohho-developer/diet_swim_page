@@ -1,14 +1,31 @@
+# Core Framework & Web
 Django>=4.2
+djangorestframework
+gunicorn
+whitenoise
+
+# Database
+psycopg2-binary
+
+# Settings & Utils
+django-environ
 Pillow
-django-environ 
-gunicorn 
+
+# Frontend
+django-bootstrap4
+
+# User Authentication
+django-allauth
+
+# Data Science & Machine Learning
 numpy
 pandas
 scikit-learn
-psycopg2-binary 
-django-bootstrap4
-whitenoise
 statsmodels
+
+# Google & Firebase
 firebase-admin
-djangorestframework
-django-allauth
+
+# requirements-dev.txt
+jupyter
+django-livereload-server
