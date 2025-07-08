@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}나만을 위한 완벽한 다이어트 여정 | 개인 맞춤형 다이어트 프로그램{% endblock %}</title>
     <link rel="manifest" href="{% static 'manifest.json' %}">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Blooming Swim">
     <link rel="apple-touch-icon" href="{% static 'img/hochul.png' %}">
@@ -20,7 +20,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Anton Font for Brand Name -->
+    <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+    
     <script type="module">
+        
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
         import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
@@ -154,6 +158,68 @@
     
   
     <style>
+        :root {
+            --bs-primary: #0152a8 !important;
+            --bs-primary-rgb: 1, 82, 168 !important;
+            --bs-primary-text-emphasis: #0152a8 !important;
+            --bs-primary-bg-subtle: rgba(1, 82, 168, 0.1) !important;
+            --bs-primary-border-subtle: rgba(1, 82, 168, 0.2) !important;
+        }
+        
+        /* 직접 primary 색상 오버라이드 */
+        .btn-primary {
+            background-color: #0152a8 !important;
+            border-color: #0152a8 !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #014a8f !important;
+            border-color: #014a8f !important;
+        }
+        
+        .btn-primary:focus {
+            background-color: #0152a8 !important;
+            border-color: #0152a8 !important;
+            box-shadow: 0 0 0 0.25rem rgba(1, 82, 168, 0.25) !important;
+        }
+        
+        .text-primary {
+            color: #0152a8 !important;
+        }
+        
+        .bg-primary {
+            background-color: #0152a8 !important;
+        }
+        
+        .border-primary {
+            border-color: #0152a8 !important;
+        }
+        
+        /* outline-primary 버튼 스타일 */
+        .btn-outline-primary {
+            color: #0152a8 !important;
+            border-color: #0152a8 !important;
+        }
+        
+        .btn-outline-primary:hover {
+            color: #fff !important;
+            background-color: #0152a8 !important;
+            border-color: #0152a8 !important;
+        }
+        
+        .btn-outline-primary:focus {
+            color: #fff !important;
+            background-color: #0152a8 !important;
+            border-color: #0152a8 !important;
+            box-shadow: 0 0 0 0.25rem rgba(1, 82, 168, 0.25) !important;
+        }
+        
+        .btn-outline-primary:active {
+            color: #fff !important;
+            background-color: #014a8f !important;
+            border-color: #014a8f !important;
+        }
+        
         body {
             margin: 0; /* 브라우저 기본 여백 제거 */
             font-family: "Noto Sans KR", sans-serif;
@@ -162,20 +228,13 @@
             font-style: normal;
             word-break: keep-all;
             overflow-wrap: break-word;
+            overflow-x: hidden; /* 가로 스크롤 방지 */
         }
 
         .container {
             max-width: 900px;
+            min-width: 770px;
             margin: 0 auto;
-        }
-
-        @media (max-width: 900px) {
-            .container {
-                width: 100%; /* 너비를 100%로 채우고 */
-                min-width: 580px;
-                padding: 0 0; /* 내부 여백으로 콘텐츠와 화면 가장자리 간격 조절 */
-                box-sizing: border-box; /* padding이 너비에 포함되도록 설정 */
-            }
         }
     </style>
 </head>
@@ -270,13 +329,68 @@
             </div>
         </div>
         </footer>
+        
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const desktopWidth = 900; // 데스크톱 레이아웃의 기준 너비 (원하는 너비로 조정 가능)
+            const mainContentContainer = document.querySelector('.container'); 
+            // .container는 base.html의 <body> 바로 아래 있는 div 입니다.
+            // 만약 이 div가 아니라 페이지 전체를 감싸는 다른 요소가 있다면 해당 셀렉터로 변경해야 합니다.
+
+            // 화면 크기에 따라 스케일을 조정하는 함수
+            function adjustScale() {
+                const viewportWidth = window.innerWidth; // 현재 뷰포트의 너비
+
+                // 모바일 기기이거나 (화면 너비가 desktopWidth보다 작을 때)
+                // 또는 PC에서 브라우저 창 크기를 줄여서 desktopWidth보다 작아졌을 때만 작동
+                if (mainContentContainer && viewportWidth < desktopWidth) { 
+                    const scale = viewportWidth / desktopWidth; // 축소 비율 계산
+
+                    // 컨테이너 너비를 기준 너비로 설정하고, 계산된 비율로 축소
+                    mainContentContainer.style.width = desktopWidth + 'px';
+                    mainContentContainer.style.transform = `scale(${scale})`;
+                    mainContentContainer.style.transformOrigin = 'top left'; // 축소 기준점을 상단 중앙으로 설정
+
+                    // 축소된 컨테이너가 중앙에 오도록 마진 조정 (CSS margin: 0 auto와 유사 효과)
+                    mainContentContainer.style.marginLeft = 0;
+                    mainContentContainer.style.marginRight = 0;
+
+                    // body에 overflow-x: hidden을 강제하여 가로 스크롤 방지
+                    document.body.style.overflowX = 'hidden';
+
+                } else {
+                    // 데스크톱 환경이거나, 화면 너비가 desktopWidth보다 크거나 같을 때 (원래대로)
+                    // 인라인 스타일 제거하여 CSS 규칙에 따르도록 함
+                    if (mainContentContainer) {
+                        mainContentContainer.style.width = '';
+                        mainContentContainer.style.transform = '';
+                        mainContentContainer.style.transformOrigin = '';
+                        mainContentContainer.style.marginLeft = '';
+                        mainContentContainer.style.marginRight = '';
+                    }
+                    document.body.style.overflowX = ''; // 가로 스크롤 제한 해제 (PC에서는 보통 필요 없음)
+                }
+            }
+
+            // 페이지 로드 시 한 번 실행하여 초기 스케일 조정
+            adjustScale();
+
+            // 화면 크기가 변경될 때마다 실행 (디바이스 회전 등)
+            window.addEventListener('resize', adjustScale);
+
+            // **중요:** SPA(Single Page Application)가 아니더라도,
+            // 만약 특정 비동기 콘텐츠 로드 후 레이아웃이 변경되는 경우
+            // 해당 콘텐츠 로드가 완료된 시점에 `adjustScale()`을 다시 호출해야 할 수 있습니다.
+        });
+    </script>
 </body>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Font Awesome for Social Icons (Optional, or use Phosphor) -->
      <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <!-- Custom JavaScript for Form Submission -->
     <script>
+        
         document.addEventListener('DOMContentLoaded', function() {
             const subscribeForm = document.getElementById('subscribeForm');
             const emailInput = document.getElementById('emailInput');
