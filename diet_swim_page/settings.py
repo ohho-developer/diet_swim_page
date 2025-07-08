@@ -167,21 +167,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = '/static/'
+# 정적 파일 관련 설정
+STATIC_URL = '/static/' # 웹에서 정적 파일에 접근할 URL
 
-if DEBUG:
-    # 개발환경 설정
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static'),
-    ]
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-else:
-    # 배포환경 설정
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-    STATIC_URL = '/static/'
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static'),
-    ]
+# 개발 환경에서 추가 정적 파일이 있는 디렉토리 (앱 외부에 있는 프로젝트 레벨 static 파일)
+# collectstatic이 이 디렉토리에서 파일을 수집함
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'), # root/static 디렉토리를 포함
+]
+
+# 배포 환경에서 collectstatic 명령이 모든 정적 파일을 모아놓을 최종 디렉토리
+# 이 디렉토리는 STATICFILES_DIRS에 포함되어서는 안 됨
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
