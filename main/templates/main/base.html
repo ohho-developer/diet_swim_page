@@ -22,6 +22,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
     <!-- Anton Font for Brand Name -->
     <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+    <!-- Pretendard Font -->
+    <link rel="preconnect" href="https://fastly.jsdelivr.net">
+    <link href="https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff" rel="stylesheet">
     
     <script type="module">
         
@@ -237,61 +240,62 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Offcanvas Navbar 시작 -->
-        <nav class="navbar sticky-top px-4" style="background-color: #0152a8;">
-            <a class="navbar-brand text-white" style="font-family: 'Anton', sans-serif; font-size: 2rem;" href="{% url 'index' %}">
-                BLOOMING SWIM
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
-                <div class="offcanvas-header">
-                    <h5 class="offcanvas-title" id="offcanvasNavbarLabel">메뉴</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
-                <div class="offcanvas-body">
-                    <ul class="navbar-nav ms-auto">
-                        {% if user.is_authenticated %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-user me-1"></i>{{ user.username }}
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                        <i class="fas fa-user-circle me-2"></i>마이페이지
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{% url 'account_email' %}">
-                                        <i class="fas fa-envelope me-2"></i>이메일 관리
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
-                                        <i class="fas fa-key me-2"></i>비밀번호 변경
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
-                                        <i class="fas fa-clipboard-list me-2"></i>설문입력
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
-                                        <i class="fas fa-sign-out-alt me-2"></i>로그아웃
-                                    </a></li>
-                                </ul>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" style="color: #0152a8;" href="{% url 'account_login' %}">로그인</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'account_signup' %}">회원가입</a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
+    <!-- Offcanvas Navbar 시작 -->
+    <nav class="navbar sticky-top px-4" style="background-color: #0152a8;">
+        <a class="navbar-brand text-white" style="font-family: 'Anton', sans-serif; font-size: 2rem;" href="{% url 'index' %}">
+            BLOOMING SWIM
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="offcanvasNavbarLabel">메뉴</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
+            <div class="offcanvas-body">
+                <ul class="navbar-nav ms-auto">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user me-1"></i>{{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                    <i class="fas fa-user-circle me-2"></i>마이페이지
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'account_email' %}">
+                                    <i class="fas fa-envelope me-2"></i>이메일 관리
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
+                                    <i class="fas fa-key me-2"></i>비밀번호 변경
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'wellness_checkin:daily_checkin_input' %}">
+                                    <i class="fas fa-clipboard-list me-2"></i>설문입력
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>로그아웃
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" style="color: #0152a8;" href="{% url 'account_login' %}">로그인</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'account_signup' %}">회원가입</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    
+    </nav>
+    <!-- Offcanvas Navbar 끝 -->
+    <div class="container">
         
-        </nav>
-        <!-- Offcanvas Navbar 끝 -->
     
         <div>
             {% block content %}{% endblock %}
@@ -335,19 +339,23 @@
             const mobileBreakpoint = 650;
             // 데스크톱 레이아웃의 기준 너비 (실제 레이아웃 너비)
             const desktopLayoutWidth = 650;
+
     
             const mainContentContainer = document.querySelector('.container');
     
             // 화면 크기에 따라 스케일을 조정하는 함수
             function adjustScale() {
                 const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
     
                 // 뷰포트 너비가 mobileBreakpoint보다 작을 때만 작동
                 if (mainContentContainer && viewportWidth <= mobileBreakpoint) {
                     const scale = viewportWidth / desktopLayoutWidth; // 축소 비율 계산
+                    const desktopLayoutHeight = viewportHeight * scale;
     
                     // 컨테이너 너비를 기준 너비로 설정하고, 계산된 비율로 축소
                     mainContentContainer.style.width = desktopLayoutWidth + 'px';
+                    mainContentContainer.style.height = desktopLayoutHeight + 'px';
                     mainContentContainer.style.transform = `scale(${scale})`;
                     mainContentContainer.style.transformOrigin = 'top left';
     
@@ -363,6 +371,7 @@
                     // 인라인 스타일 제거하여 CSS 규칙에 따르도록 함
                     if (mainContentContainer) {
                         mainContentContainer.style.width = '';
+                        mainContentContainer.style.height = '';
                         mainContentContainer.style.transform = '';
                         mainContentContainer.style.transformOrigin = '';
                         mainContentContainer.style.marginLeft = '';
@@ -390,8 +399,46 @@
     <script>
         
         document.addEventListener('DOMContentLoaded', function() {
+            // Lazy Loading Script
+            const lazyImages = document.querySelectorAll('.lazy-image');
+            
+            if (lazyImages.length > 0) {
+                const imageObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            const dataSrc = img.getAttribute('data-src');
+                            
+                            if (dataSrc) {
+                                img.src = dataSrc;
+                                img.removeAttribute('data-src');
+                                
+                                img.onload = function() {
+                                    img.classList.add('loaded');
+                                };
+                                
+                                img.onerror = function() {
+                                    console.error('Failed to load image:', dataSrc);
+                                    img.classList.add('loaded'); // Show placeholder or error state
+                                };
+                            }
+                            
+                            observer.unobserve(img);
+                        }
+                    });
+                }, {
+                    rootMargin: '50px 0px', // Start loading 50px before the image enters viewport
+                    threshold: 0.01
+                });
+                
+                lazyImages.forEach(img => {
+                    imageObserver.observe(img);
+                });
+            }
+            
+            // Form handling
             const subscribeForm = document.getElementById('subscribeForm');
-            const emailInput = document.getElementById('emailInput');
+            const emailInput = document.getElementById('emailInput') || document.getElementById('contactInput');
             const privacyCheck = document.getElementById('privacyCheck');
             const formMessage = document.getElementById('formMessage');
 
