@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>{% block title %}나만을 위한 완벽한 다이어트 여정 | 개인 맞춤형 다이어트 프로그램{% endblock %}</title>
     <link rel="manifest" href="{% static 'manifest.json' %}">
     <meta name="mobile-web-app-capable" content="yes">
@@ -227,13 +227,11 @@
             font-weight: <weight>;
             font-style: normal;
             word-break: keep-all;
-            overflow-wrap: break-word;
-            overflow-x: hidden; /* 가로 스크롤 방지 */
         }
 
         .container {
             max-width: 900px;
-            min-width: 770px;
+            min-width: 650px;
             margin: 0 auto;
         }
     </style>
@@ -333,34 +331,35 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const desktopWidth = 900; // 데스크톱 레이아웃의 기준 너비 (원하는 너비로 조정 가능)
-            const mainContentContainer = document.querySelector('.container'); 
-            // .container는 base.html의 <body> 바로 아래 있는 div 입니다.
-            // 만약 이 div가 아니라 페이지 전체를 감싸는 다른 요소가 있다면 해당 셀렉터로 변경해야 합니다.
-
+            // 모바일로 간주할 최대 너비 (600px 이하에서만 작동)
+            const mobileBreakpoint = 650;
+            // 데스크톱 레이아웃의 기준 너비 (실제 레이아웃 너비)
+            const desktopLayoutWidth = 650;
+    
+            const mainContentContainer = document.querySelector('.container');
+    
             // 화면 크기에 따라 스케일을 조정하는 함수
             function adjustScale() {
-                const viewportWidth = window.innerWidth; // 현재 뷰포트의 너비
-
-                // 모바일 기기이거나 (화면 너비가 desktopWidth보다 작을 때)
-                // 또는 PC에서 브라우저 창 크기를 줄여서 desktopWidth보다 작아졌을 때만 작동
-                if (mainContentContainer && viewportWidth < desktopWidth) { 
-                    const scale = viewportWidth / desktopWidth; // 축소 비율 계산
-
+                const viewportWidth = window.innerWidth;
+    
+                // 뷰포트 너비가 mobileBreakpoint보다 작을 때만 작동
+                if (mainContentContainer && viewportWidth <= mobileBreakpoint) {
+                    const scale = viewportWidth / desktopLayoutWidth; // 축소 비율 계산
+    
                     // 컨테이너 너비를 기준 너비로 설정하고, 계산된 비율로 축소
-                    mainContentContainer.style.width = desktopWidth + 'px';
+                    mainContentContainer.style.width = desktopLayoutWidth + 'px';
                     mainContentContainer.style.transform = `scale(${scale})`;
-                    mainContentContainer.style.transformOrigin = 'top left'; // 축소 기준점을 상단 중앙으로 설정
-
-                    // 축소된 컨테이너가 중앙에 오도록 마진 조정 (CSS margin: 0 auto와 유사 효과)
-                    mainContentContainer.style.marginLeft = 0;
-                    mainContentContainer.style.marginRight = 0;
-
+                    mainContentContainer.style.transformOrigin = 'top left';
+    
+                    // 축소된 컨테이너가 중앙에 오도록 마진 조정
+                    mainContentContainer.style.marginLeft = 'auto';
+                    mainContentContainer.style.marginRight = 'auto';
+    
                     // body에 overflow-x: hidden을 강제하여 가로 스크롤 방지
                     document.body.style.overflowX = 'hidden';
-
+    
                 } else {
-                    // 데스크톱 환경이거나, 화면 너비가 desktopWidth보다 크거나 같을 때 (원래대로)
+                    // mobileBreakpoint보다 크거나 같을 때 (PC 또는 넓은 모바일 화면)
                     // 인라인 스타일 제거하여 CSS 규칙에 따르도록 함
                     if (mainContentContainer) {
                         mainContentContainer.style.width = '';
@@ -369,19 +368,18 @@
                         mainContentContainer.style.marginLeft = '';
                         mainContentContainer.style.marginRight = '';
                     }
-                    document.body.style.overflowX = ''; // 가로 스크롤 제한 해제 (PC에서는 보통 필요 없음)
+                    document.body.style.overflowX = '';
                 }
             }
-
+    
             // 페이지 로드 시 한 번 실행하여 초기 스케일 조정
             adjustScale();
-
+    
             // 화면 크기가 변경될 때마다 실행 (디바이스 회전 등)
             window.addEventListener('resize', adjustScale);
-
-            // **중요:** SPA(Single Page Application)가 아니더라도,
-            // 만약 특정 비동기 콘텐츠 로드 후 레이아웃이 변경되는 경우
-            // 해당 콘텐츠 로드가 완료된 시점에 `adjustScale()`을 다시 호출해야 할 수 있습니다.
+            
+            // 추가: DOM이 완전히 로드된 후 다시 한 번 실행
+            setTimeout(adjustScale, 100);
         });
     </script>
 </body>
