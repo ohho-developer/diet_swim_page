@@ -33,7 +33,7 @@ class FCMDeviceAdmin(admin.ModelAdmin):
     
     def get_readonly_fields(self, request, obj=None):
         if obj:  # 편집 중인 경우
-            return self.readonly_fields + ('registration_id', 'user')
+            return list(self.readonly_fields) + list(('registration_id', 'user'))
         return self.readonly_fields
     
     actions = ['activate_devices', 'deactivate_devices', 'delete_selected']
