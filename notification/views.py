@@ -97,20 +97,31 @@ class FCMTokenRegisterView(APIView):
             print(f"Available data keys: {list(request.data.keys())}")
             return Response({'error': 'FCM registration token is required.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # 토큰 길이 및 형식 검증
-        if len(registration_id) < 100:
-            print("❌ ERROR: FCM token too short")
-            return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+        # 테스트 토큰인지 확인
+        is_test_token = registration_id.startswith('test_token_') or registration_id.startswith('ios_test_token_')
         
-        if len(registration_id) > 500:
-            print("❌ ERROR: FCM token too long")
-            return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 토큰 형식 검증 (FCM 토큰은 보통 특정 패턴을 가짐)
-        import re
-        if not re.match(r'^[A-Za-z0-9:_-]+$', registration_id):
-            print("❌ ERROR: Invalid FCM token format")
-            return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+        # 실제 FCM 토큰인 경우에만 형식 검증
+        if not is_test_token:
+            # 토큰 길이 및 형식 검증
+            if len(registration_id) < 100:
+                print("❌ ERROR: FCM token too short")
+                return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if len(registration_id) > 500:
+                print("❌ ERROR: FCM token too long")
+                return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 토큰 형식 검증 (FCM 토큰은 보통 특정 패턴을 가짐)
+            import re
+            if not re.match(r'^[A-Za-z0-9:_-]+$', registration_id):
+                print("❌ ERROR: Invalid FCM token format")
+                return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print(f"✅ Test token detected: {registration_id[:50]}...")
+            # 테스트 토큰은 길이만 확인
+            if len(registration_id) < 10:
+                print("❌ ERROR: Test token too short")
+                return Response({'error': 'Invalid test token format.'}, status=status.HTTP_400_BAD_REQUEST)
 
         print(f"✅ Token received: {registration_id[:50]}...")
         print(f"Device Name: {device_name}")
