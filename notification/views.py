@@ -23,17 +23,30 @@ class FCMTokenRegisterView(APIView):
     def get(self, request):
         """간단한 연결 테스트용 GET 요청"""
         print(f"\n=== FCM API Connection Test ===")
+        print(f"Timestamp: {datetime.now()}")
         print(f"User: {request.user.username} (ID: {request.user.id})")
         print(f"Request Method: {request.method}")
         print(f"Request Path: {request.path}")
         print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
         print(f"Remote Address: {request.META.get('REMOTE_ADDR', 'Unknown')}")
+        print(f"X-Forwarded-For: {request.META.get('HTTP_X_FORWARDED_FOR', 'None')}")
         print(f"Request Headers: {dict(request.headers)}")
+        
+        # iOS Safari 특별 로깅
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        is_ios = 'iPhone' in user_agent or 'iPad' in user_agent or 'iPod' in user_agent
+        is_safari = 'Safari' in user_agent and 'Chrome' not in user_agent
+        
+        print(f"iOS Device: {is_ios}")
+        print(f"Safari Browser: {is_safari}")
         
         return Response({
             'message': 'FCM API is accessible',
             'user': request.user.username,
-            'timestamp': str(datetime.now())
+            'timestamp': str(datetime.now()),
+            'is_ios': is_ios,
+            'is_safari': is_safari,
+            'user_agent': user_agent
         }, status=status.HTTP_200_OK)
 
     def detect_platform(self, user_agent):
@@ -53,13 +66,25 @@ class FCMTokenRegisterView(APIView):
     def post(self, request):
         # 상세한 서버 로깅
         print(f"\n=== FCM Token Registration Request ===")
+        print(f"Timestamp: {datetime.now()}")
         print(f"User: {request.user.username} (ID: {request.user.id})")
         print(f"Request Method: {request.method}")
         print(f"Request Path: {request.path}")
         print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
         print(f"Remote Address: {request.META.get('REMOTE_ADDR', 'Unknown')}")
+        print(f"X-Forwarded-For: {request.META.get('HTTP_X_FORWARDED_FOR', 'None')}")
         print(f"Request Headers: {dict(request.headers)}")
         print(f"Request Data: {request.data}")
+        print(f"Request Body: {request.body}")
+        print(f"Content Type: {request.content_type}")
+        
+        # iOS Safari 특별 로깅
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        is_ios = 'iPhone' in user_agent or 'iPad' in user_agent or 'iPod' in user_agent
+        is_safari = 'Safari' in user_agent and 'Chrome' not in user_agent
+        
+        print(f"iOS Device: {is_ios}")
+        print(f"Safari Browser: {is_safari}")
         
         registration_id = request.data.get('token')
         device_name = request.data.get('name', None)
@@ -69,6 +94,7 @@ class FCMTokenRegisterView(APIView):
         # 토큰 유효성 검증 강화
         if not registration_id:
             print("❌ ERROR: No registration token provided")
+            print(f"Available data keys: {list(request.data.keys())}")
             return Response({'error': 'FCM registration token is required.'}, status=status.HTTP_400_BAD_REQUEST)
         
         # 토큰 길이 및 형식 검증
@@ -161,6 +187,7 @@ class FCMTokenRegisterView(APIView):
                 'browser': browser_info
             }
             
+            print(f"✅ Response sent: {response_data}")
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
             print(f"❌ ERROR registering FCM token: {e}")

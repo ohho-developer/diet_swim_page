@@ -179,7 +179,7 @@
             }
             
             // 올바른 API 엔드포인트 URL 사용
-            fetch('/api/notification/fcm/register/', {
+            fetch('/api/fcm/register/', {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(deviceInfo),
@@ -277,7 +277,7 @@
             };
             
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/notification/fcm/register/', true);
+            xhr.open('POST', '/api/fcm/register/', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -1095,7 +1095,7 @@
             console.log('Sending test request...');
             
             // fetch 테스트
-            fetch('/api/notification/fcm/register/', {
+            fetch('/api/fcm/register/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1117,7 +1117,7 @@
                 // XMLHttpRequest 테스트
                 console.log('Trying XMLHttpRequest...');
                 const xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/notification/fcm/register/', true);
+                xhr.open('POST', '/api/fcm/register/', true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -1214,7 +1214,7 @@
             console.log('=== Testing Server Connection ===');
             
             // GET 요청으로 연결 테스트
-            fetch('/api/notification/fcm/register/', {
+            fetch('/api/fcm/register/', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1246,7 +1246,7 @@
                 user_agent: navigator.userAgent
             };
             
-            fetch('/api/notification/fcm/register/', {
+            fetch('/api/fcm/register/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1267,6 +1267,90 @@
                 showNotificationMessage('❌ POST 요청에 실패했습니다.', 'error');
             });
         };
+
+        // iOS 디버깅 패널 생성
+        function createIOSDebugPanel() {
+            const debugHTML = `
+                <div id="iosDebugPanel" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 10px; font-size: 12px; z-index: 10000; max-width: 300px;">
+                    <h4 style="margin: 0 0 10px 0; color: #ff6b6b;">🔧 iOS 디버깅 패널</h4>
+                    <div style="margin-bottom: 10px;">
+                        <strong>권한:</strong> <span id="debugPermission">${Notification.permission}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>FCM 등록:</strong> <span id="debugFCMStatus">${fcmTokenRegistered ? '✅' : '❌'}</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>디바이스:</strong> <span id="debugDevice">${/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'iOS' : 'Other'}</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <button onclick="testIOSPermission()" style="background: #4ecdc4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">권한 테스트</button>
+                        <button onclick="testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">서버 연결 테스트</button>
+                        <button onclick="forceTestToken()" style="background: #96ceb4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">강제 토큰 등록</button>
+                        <button onclick="document.getElementById('iosDebugPanel').style.display='none'" style="background: #ff6b6b; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">닫기</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', debugHTML);
+        }
+        
+        // iOS 권한 테스트
+        function testIOSPermission() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            alert(`iOS: ${isIOS}\nSafari: ${isSafari}\n권한: ${Notification.permission}\nFCM 등록: ${fcmTokenRegistered}`);
+        }
+        
+        // 강제 테스트 토큰 등록
+        function forceTestToken() {
+            const testToken = 'ios_test_token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            const deviceInfo = {
+                token: testToken,
+                name: 'iOS Safari Test',
+                platform: 'ios',
+                user_agent: navigator.userAgent,
+                device_type: 'mobile',
+                browser: 'Safari',
+                app_version: 'PWA'
+            };
+            
+            console.log('Sending test device info:', deviceInfo);
+            
+            fetch('/api/fcm/register/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(deviceInfo)
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                alert('✅ 테스트 토큰이 등록되었습니다!\n\n응답: ' + JSON.stringify(data));
+                document.getElementById('debugFCMStatus').textContent = '✅';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ 토큰 등록 실패: ' + error.message);
+            });
+        }
+        
+        // 페이지 로드 시 iOS 디버깅 패널 표시 (iOS에서만)
+        document.addEventListener('DOMContentLoaded', function() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                // 3초 후 디버깅 패널 표시
+                setTimeout(() => {
+                    createIOSDebugPanel();
+                }, 3000);
+            }
+        });
     </script>
     
   
