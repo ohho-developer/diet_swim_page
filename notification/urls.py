@@ -1,11 +1,13 @@
 from django.urls import path
-from .views import FCMTokenRegisterView, FCMTokenDeleteView, ScheduledNotificationTrigger
+from . import views
 
 app_name = 'notification'
 
 urlpatterns = [
-    path('register-fcm-token/', FCMTokenRegisterView.as_view(), name='register_fcm_token'),
-    path('delete-fcm-token/', FCMTokenDeleteView.as_view(), name='delete_fcm_token'),
-    path('cron/send-daily-message/', ScheduledNotificationTrigger.as_view(), name='cron_send_daily_message'),
-
+    path('fcm/register/', views.FCMTokenRegisterView.as_view(), name='fcm_register'),
+    path('fcm/delete/', views.FCMTokenDeleteView.as_view(), name='fcm_delete'),
+    path('scheduled/', views.ScheduledNotificationTrigger.as_view(), name='scheduled_notification'),
+    # 인앱 알림 관련 URL
+    path('in-app/', views.InAppNotificationView.as_view(), name='in_app_notifications'),
+    path('in-app/mark-all-read/', views.MarkAllNotificationsReadView.as_view(), name='mark_all_read'),
 ] 

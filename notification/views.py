@@ -8,15 +8,30 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated # 중복 제거
 
-from .models import FCMDevice
+from .models import FCMDevice, InAppNotification
 from .utils import send_fcm_notification # 중복 제거
 from django.conf import settings
 import os
+import re
 
 
 # Create your views here.
 class FCMTokenRegisterView(APIView):
     permission_classes = [IsAuthenticated] # 로그인한 사용자만 접근 가능하도록
+
+    def detect_platform(self, user_agent):
+        """User agent에서 플랫폼 감지"""
+        if not user_agent:
+            return 'web'
+        
+        user_agent_lower = user_agent.lower()
+        
+        if 'iphone' in user_agent_lower or 'ipad' in user_agent_lower:
+            return 'ios'
+        elif 'android' in user_agent_lower:
+            return 'android'
+        else:
+            return 'web'
 
     def post(self, request):
         registration_id = request.data.get('token')
@@ -26,13 +41,29 @@ class FCMTokenRegisterView(APIView):
             return Response({'error': 'FCM registration token is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # User agent와 플랫폼 정보 추출
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            platform = self.detect_platform(user_agent)
+            
             # 이미 존재하는 토큰인지 확인하고 업데이트하거나 새로 생성
             fcm_device, created = FCMDevice.objects.update_or_create(
                 user=request.user,
                 registration_id=registration_id,
-                defaults={'name': device_name, 'active': True} # 항상 활성화 상태로
+                defaults={
+                    'name': device_name, 
+                    'active': True,  # 항상 활성화 상태로
+                    'user_agent': user_agent,
+                    'platform': platform
+                }
             )
-            return Response({'message': 'FCM token registered successfully.', 'created': created}, status=status.HTTP_200_OK)
+            
+            print(f"[DEBUG] Device registered: {platform} - {user_agent[:50]}...")
+            
+            return Response({
+                'message': 'FCM token registered successfully.', 
+                'created': created,
+                'platform': platform
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -47,6 +78,84 @@ class FCMTokenDeleteView(APIView):
             return Response({
                 'message': f'FCM tokens deactivated successfully. Deactivated {updated_count} device(s).',
                 'deactivated_count': updated_count
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class InAppNotificationView(APIView):
+    """인앱 알림 관련 API"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """사용자의 인앱 알림 목록 조회"""
+        try:
+            notifications = InAppNotification.objects.filter(
+                user=request.user
+            ).order_by('-created_at')[:50]  # 최근 50개만
+            
+            unread_count = InAppNotification.objects.filter(
+                user=request.user, 
+                is_read=False
+            ).count()
+            
+            return Response({
+                'notifications': [
+                    {
+                        'id': notif.id,
+                        'title': notif.title,
+                        'body': notif.body,
+                        'type': notif.notification_type,
+                        'is_read': notif.is_read,
+                        'created_at': notif.created_at.isoformat(),
+                        'data': notif.data
+                    }
+                    for notif in notifications
+                ],
+                'unread_count': unread_count
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        """알림을 읽음으로 표시"""
+        notification_id = request.data.get('notification_id')
+        
+        if not notification_id:
+            return Response({'error': 'notification_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            notification = InAppNotification.objects.get(
+                id=notification_id,
+                user=request.user
+            )
+            notification.mark_as_read()
+            
+            return Response({
+                'message': 'Notification marked as read',
+                'notification_id': notification_id
+            }, status=status.HTTP_200_OK)
+        except InAppNotification.DoesNotExist:
+            return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkAllNotificationsReadView(APIView):
+    """모든 알림을 읽음으로 표시"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            from django.utils import timezone
+            updated_count = InAppNotification.objects.filter(
+                user=request.user,
+                is_read=False
+            ).update(is_read=True, read_at=timezone.now())
+            
+            return Response({
+                'message': f'{updated_count} notifications marked as read',
+                'updated_count': updated_count
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
