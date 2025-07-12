@@ -58,6 +58,120 @@
         // 중복 호출 방지를 위한 플래그
         let fcmTokenRegistrationInProgress = false;
         let fcmTokenRegistered = false;
+        
+        // 전역 함수들을 먼저 정의 (window 오류 방지)
+        window.forceTestToken = async function() {
+            try {
+                // 실제 FCM 토큰 생성 시도
+                if (typeof messaging === 'undefined') {
+                    alert('❌ Firebase Messaging이 초기화되지 않았습니다.');
+                    return;
+                }
+                
+                // Service Worker 등록
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                
+                // 실제 FCM 토큰 생성
+                const currentToken = await getToken(messaging, {
+                    serviceWorkerRegistration: registration,
+                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
+                });
+                
+                if (currentToken) {
+                    console.log('FCM 토큰 생성 성공:', currentToken.substring(0, 20) + '...');
+                    
+                    const deviceInfo = {
+                        token: currentToken,
+                        name: 'iOS Safari FCM',
+                        platform: 'ios',
+                        user_agent: navigator.userAgent,
+                        device_type: 'mobile',
+                        browser: 'Safari',
+                        app_version: 'PWA'
+                    };
+                    
+                    console.log('Sending FCM device info:', deviceInfo);
+                    
+                    const response = await fetch('/api/fcm/register/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify(deviceInfo)
+                    });
+                    
+                    const data = await response.json();
+                    console.log('Success:', data);
+                    alert('✅ FCM 토큰이 성공적으로 등록되었습니다!\n\n응답: ' + JSON.stringify(data, null, 2));
+                    const debugElement = document.getElementById('debugFCMStatus');
+                    if (debugElement) {
+                        debugElement.textContent = '✅';
+                    }
+                    fcmTokenRegistered = true;
+                } else {
+                    alert('❌ FCM 토큰 생성에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('FCM 토큰 등록 실패:', error);
+                alert('❌ FCM 토큰 등록 실패: ' + error.message);
+            }
+        };
+        
+
+        
+        // 알림 메시지 표시 함수 (전역 함수들에서 사용)
+        function showNotificationMessage(message, type = 'info') {
+            // 기존 메시지 제거
+            const existingMessage = document.getElementById('fcm-status-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            // 새 메시지 생성
+            const messageDiv = document.createElement('div');
+            messageDiv.id = 'fcm-status-message';
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                max-width: 300px;
+                word-wrap: break-word;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            
+            // 타입에 따른 스타일 설정
+            switch(type) {
+                case 'success':
+                    messageDiv.style.backgroundColor = '#28a745';
+                    break;
+                case 'error':
+                    messageDiv.style.backgroundColor = '#dc3545';
+                    break;
+                case 'warning':
+                    messageDiv.style.backgroundColor = '#ffc107';
+                    messageDiv.style.color = '#212529';
+                    break;
+                default:
+                    messageDiv.style.backgroundColor = '#17a2b8';
+            }
+            
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+            
+            // 5초 후 자동 제거
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 5000);
+        }
 
         // 서비스 워커 등록
         // service-worker.js 파일이 웹 서버 루트에 있어야 합니다.
@@ -970,57 +1084,7 @@
             }
         }
         
-        // 알림 메시지 표시 함수
-        function showNotificationMessage(message, type = 'info') {
-            // 기존 메시지 제거
-            const existingMessage = document.getElementById('fcm-status-message');
-            if (existingMessage) {
-                existingMessage.remove();
-            }
-            
-            // 새 메시지 생성
-            const messageDiv = document.createElement('div');
-            messageDiv.id = 'fcm-status-message';
-            messageDiv.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 20px;
-                border-radius: 8px;
-                color: white;
-                font-weight: 600;
-                z-index: 10000;
-                max-width: 300px;
-                word-wrap: break-word;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            `;
-            
-            // 타입에 따른 스타일 설정
-            switch(type) {
-                case 'success':
-                    messageDiv.style.backgroundColor = '#28a745';
-                    break;
-                case 'error':
-                    messageDiv.style.backgroundColor = '#dc3545';
-                    break;
-                case 'warning':
-                    messageDiv.style.backgroundColor = '#ffc107';
-                    messageDiv.style.color = '#212529';
-                    break;
-                default:
-                    messageDiv.style.backgroundColor = '#17a2b8';
-            }
-            
-            messageDiv.textContent = message;
-            document.body.appendChild(messageDiv);
-            
-            // 5초 후 자동 제거
-            setTimeout(() => {
-                if (messageDiv.parentNode) {
-                    messageDiv.remove();
-                }
-            }, 5000);
-        }
+
         
         // FCM 디바이스 상태 확인 함수 (디버깅용)
         function checkFCMDeviceStatus() {
@@ -1228,31 +1292,7 @@
             });
         };
         
-        // 서버 연결 테스트 함수
-        window.testServerConnection = function() {
-            console.log('=== Testing Server Connection ===');
-            
-            // GET 요청으로 연결 테스트
-            fetch('/api/fcm/register/', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                }
-            })
-            .then(response => {
-                console.log('Connection test response status:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Connection test successful:', data);
-                showNotificationMessage('✅ 서버 연결이 정상입니다!', 'success');
-            })
-            .catch(error => {
-                console.error('Connection test failed:', error);
-                showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
-            });
-        };
+
         
         // 실제 FCM 토큰으로 POST 요청 테스트
         window.testPostRequest = async function() {
@@ -1301,62 +1341,7 @@
             }
         };
 
-        // 강제 FCM 토큰 등록 - 전역 함수로 정의 (먼저 정의)
-        window.forceTestToken = async function() {
-            try {
-                // 실제 FCM 토큰 생성 시도
-                if (typeof messaging === 'undefined') {
-                    alert('❌ Firebase Messaging이 초기화되지 않았습니다.');
-                    return;
-                }
-                
-                // Service Worker 등록
-                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                
-                // 실제 FCM 토큰 생성
-                const currentToken = await getToken(messaging, {
-                    serviceWorkerRegistration: registration,
-                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
-                });
-                
-                if (currentToken) {
-                    console.log('FCM 토큰 생성 성공:', currentToken.substring(0, 20) + '...');
-                    
-                    const deviceInfo = {
-                        token: currentToken,
-                        name: 'iOS Safari FCM',
-                        platform: 'ios',
-                        user_agent: navigator.userAgent,
-                        device_type: 'mobile',
-                        browser: 'Safari',
-                        app_version: 'PWA'
-                    };
-                    
-                    console.log('Sending FCM device info:', deviceInfo);
-                    
-                    const response = await fetch('/api/fcm/register/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify(deviceInfo)
-                    });
-                    
-                    const data = await response.json();
-                    console.log('Success:', data);
-                    alert('✅ FCM 토큰이 성공적으로 등록되었습니다!\n\n응답: ' + JSON.stringify(data, null, 2));
-                    document.getElementById('debugFCMStatus').textContent = '✅';
-                    fcmTokenRegistered = true;
-                } else {
-                    alert('❌ FCM 토큰 생성에 실패했습니다.');
-                }
-            } catch (error) {
-                console.error('FCM 토큰 등록 실패:', error);
-                alert('❌ FCM 토큰 등록 실패: ' + error.message);
-            }
-        };
+
         
         // iOS 디버깅 패널 생성
         function createIOSDebugPanel() {
@@ -1373,60 +1358,15 @@
                         <strong>디바이스:</strong> <span id="debugDevice">${/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'iOS' : 'Other'}</span>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <button onclick="window.testIOSPermission()" style="background: #4ecdc4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">권한 테스트</button>
-                        <button onclick="window.testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">서버 연결 테스트</button>
-                        <button onclick="window.forceTestToken()" style="background: #96ceb4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">FCM 토큰 등록</button>
+                        <button onclick="if(typeof window.testIOSPermission === 'function') window.testIOSPermission()" style="background: #4ecdc4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">권한 테스트</button>
+                        <button onclick="if(typeof window.testServerConnection === 'function') window.testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">서버 연결 테스트</button>
+                        <button onclick="if(typeof window.forceTestToken === 'function') window.forceTestToken()" style="background: #96ceb4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">FCM 토큰 등록</button>
                         <button onclick="document.getElementById('iosDebugPanel').style.display='none'" style="background: #ff6b6b; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">닫기</button>
                     </div>
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', debugHTML);
         }
-        
-        // iOS 권한 테스트 - 전역 함수로 정의
-        window.testIOSPermission = function() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            const message = `iOS: ${isIOS}\nSafari: ${isSafari}\nPWA 모드: ${isStandalone}\n권한: ${Notification.permission}\nFCM 등록: ${fcmTokenRegistered}`;
-            alert(message);
-            console.log('iOS Permission Test:', { isIOS, isSafari, isStandalone, permission: Notification.permission, fcmRegistered: fcmTokenRegistered });
-        };
-        
-        // 서버 연결 테스트 - 전역 함수로 정의
-        window.testServerConnection = function() {
-            console.log('=== Server Connection Test ===');
-            
-            const deviceInfo = {
-                platform: 'ios',
-                timestamp: new Date().toISOString(),
-                user_agent: navigator.userAgent,
-                device_type: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
-                browser: getBrowserInfo()
-            };
-            
-            fetch('/api/fcm/register/', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                console.log('Server test response status:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Server test response:', data);
-                alert('✅ 서버 연결 성공!\n\n응답: ' + JSON.stringify(data, null, 2));
-            })
-            .catch(error => {
-                console.error('Server test error:', error);
-                alert('❌ 서버 연결 실패: ' + error.message);
-            });
-        };
         
 
         
