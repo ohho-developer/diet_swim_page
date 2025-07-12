@@ -308,19 +308,30 @@
                 notificationOptions.body = payload.data.body || '';
             }
             // 실제 푸시알림으로 띄우기
-            if (Notification.permission === 'granted') {
-                const n = new Notification(notificationTitle, notificationOptions);
-                n.onclick = function(event) {
-                    event.preventDefault();
-                    let targetUrl = payload.data && payload.data.url ? payload.data.url : '/';
-                    window.open(targetUrl, '_blank');
-                };
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try {
+                    const n = new Notification(notificationTitle, notificationOptions);
+                    n.onclick = function(event) {
+                        event.preventDefault();
+                        let targetUrl = payload.data && payload.data.url ? payload.data.url : '/';
+                        window.open(targetUrl, '_blank');
+                    };
+                } catch (error) {
+                    showDebugInfo(`❌ 알림 생성 실패: ${error.message}`, 'error');
+                }
             }
         });
 
         // 푸시 알림 권한 요청 및 토큰 가져오기 함수
         function requestPermissionAndGetToken(messaging, serviceWorkerRegistration) {
             showDebugInfo('🔍 권한 요청 함수 시작', 'debug');
+            
+            // Notification API 존재 확인
+            if (typeof Notification === 'undefined') {
+                showDebugInfo('❌ Notification API가 정의되지 않음', 'error');
+                fcmTokenRegistrationInProgress = false;
+                return;
+            }
             
             // 중복 호출 방지
             if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
@@ -331,29 +342,38 @@
             fcmTokenRegistrationInProgress = true;
             
             showDebugInfo('🔔 알림 권한 요청 중...', 'debug');
-            Notification.requestPermission().then((permission) => {
-                showDebugInfo(`🔔 권한 결과: ${permission}`, permission === 'granted' ? 'success' : 'error');
-                
-                if (permission === 'granted') {
-                    showDebugInfo('🔍 FCM 토큰 요청 시작', 'debug');
-                    getToken(messaging, { serviceWorkerRegistration: serviceWorkerRegistration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' }).then((currentToken) => {
-                        if (currentToken) {
-                            showDebugInfo(`✅ FCM 토큰 받음: ${currentToken.substring(0, 20)}...`, 'success');
-                            sendTokenToServer(currentToken);
-                            fcmTokenRegistered = true;
-                        } else {
-                            showDebugInfo('❌ FCM 토큰이 null임', 'error');
+            
+            try {
+                Notification.requestPermission().then((permission) => {
+                    showDebugInfo(`🔔 권한 결과: ${permission}`, permission === 'granted' ? 'success' : 'error');
+                    
+                    if (permission === 'granted') {
+                        showDebugInfo('🔍 FCM 토큰 요청 시작', 'debug');
+                        getToken(messaging, { serviceWorkerRegistration: serviceWorkerRegistration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' }).then((currentToken) => {
+                            if (currentToken) {
+                                showDebugInfo(`✅ FCM 토큰 받음: ${currentToken.substring(0, 20)}...`, 'success');
+                                sendTokenToServer(currentToken);
+                                fcmTokenRegistered = true;
+                            } else {
+                                showDebugInfo('❌ FCM 토큰이 null임', 'error');
+                                fcmTokenRegistrationInProgress = false;
+                            }
+                        }).catch((err) => {
+                            showDebugInfo(`❌ FCM 토큰 요청 실패: ${err.message}`, 'error');
                             fcmTokenRegistrationInProgress = false;
-                        }
-                    }).catch((err) => {
-                        showDebugInfo(`❌ FCM 토큰 요청 실패: ${err.message}`, 'error');
+                        });
+                    } else {
+                        showDebugInfo('❌ 권한 거부됨', 'error');
                         fcmTokenRegistrationInProgress = false;
-                    });
-                } else {
-                    showDebugInfo('❌ 권한 거부됨', 'error');
+                    }
+                }).catch((error) => {
+                    showDebugInfo(`❌ 권한 요청 실패: ${error.message}`, 'error');
                     fcmTokenRegistrationInProgress = false;
-                }
-            });
+                });
+            } catch (error) {
+                showDebugInfo(`❌ Notification API 오류: ${error.message}`, 'error');
+                fcmTokenRegistrationInProgress = false;
+            }
         }
 
         // 토큰을 Django 백엔드로 전송하는 함수 (fetch API 사용)
@@ -1249,7 +1269,8 @@
         // iOS 디버깅용 전역 함수들
         window.debugFCMProcess = function() {
             showDebugInfo('🔍 FCM 프로세스 디버깅 시작', 'debug');
-            showDebugInfo(`현재 권한: ${Notification.permission}`, 'debug');
+            showDebugInfo(`Notification API: ${typeof Notification !== 'undefined'}`, 'debug');
+            showDebugInfo(`현재 권한: ${typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}`, 'debug');
             showDebugInfo(`FCM 등록됨: ${fcmTokenRegistered}`, 'debug');
             showDebugInfo(`진행 중: ${fcmTokenRegistrationInProgress}`, 'debug');
             showDebugInfo(`Firebase 초기화: ${typeof messaging !== 'undefined'}`, 'debug');
@@ -1259,6 +1280,12 @@
             showDebugInfo('🔧 강제 FCM 등록 시작', 'debug');
             fcmTokenRegistered = false;
             fcmTokenRegistrationInProgress = false;
+            
+            // Notification API 확인
+            if (typeof Notification === 'undefined') {
+                showDebugInfo('❌ Notification API가 정의되지 않음', 'error');
+                return;
+            }
             
             if (typeof messaging !== 'undefined') {
                 navigator.serviceWorker.register('/firebase-messaging-sw.js')
