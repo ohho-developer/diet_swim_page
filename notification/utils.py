@@ -1,7 +1,6 @@
 from firebase_admin import messaging
 from .models import FCMDevice
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 import re
 import json
 
@@ -136,20 +135,6 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     # 중복 전송 방지를 위한 고유 식별자 추가
     import hashlib
     import time
-    from django.utils import timezone
-    
-    # 사용자별 최근 알림 시간 체크 (1시간 내 중복 방지)
-    cache_key = f"user_notification_last_sent_{user.id}"
-    last_sent = cache.get(cache_key)
-    
-    if last_sent:
-        time_diff = timezone.now() - last_sent
-        if time_diff.total_seconds() < 3600:  # 1시간 내에 이미 보낸 경우
-            print(f"[DEBUG] Skipping notification for {user.username} - last sent {time_diff.total_seconds():.0f} seconds ago")
-            return False
-    
-    # 현재 시간을 캐시에 저장
-    cache.set(cache_key, timezone.now(), 7200)  # 2시간 동안 캐시
     
     message_id = hashlib.md5(f"{user.id}_{title}_{body}_{int(time.time())}".encode()).hexdigest()
     print(f"[DEBUG] Message ID: {message_id}")

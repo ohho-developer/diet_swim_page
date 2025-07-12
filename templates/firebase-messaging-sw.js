@@ -51,6 +51,14 @@ messaging.onBackgroundMessage((payload) => {
     
     console.log('[firebase-messaging-sw.js] Processing message:', messageId);
     
+    // 브라우저 탭 간 중복 알림 방지: 다른 탭에 이미 알림이 표시되었는지 확인
+    const notificationTag = 'blooming-swim-notification';
+    self.registration.getNotifications({ tag: notificationTag }).then((notifications) => {
+        if (notifications.length > 0) {
+            console.log('[firebase-messaging-sw.js] Notification already exists, skipping');
+            return;
+        }
+    
     // iOS Safari 특별 처리
     if (isIOS && isSafari) {
         console.log('[iOS Safari] Processing background message');
@@ -113,6 +121,7 @@ messaging.onBackgroundMessage((payload) => {
 
         return self.registration.showNotification(notificationTitle, notificationOptions);
     }
+    });
 });
 
 // 알림 클릭 시 처리 (iOS Safari 강화)

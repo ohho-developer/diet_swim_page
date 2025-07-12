@@ -136,7 +136,7 @@
         // 중복 메시지 방지를 위한 캐시
         const processedMessages = new Set();
         
-        onMessage(messaging, (payload) => {
+        onMessage(messaging, async (payload) => {
             console.log('Message received in foreground. ', payload);
             
             // 중복 메시지 체크
@@ -173,6 +173,17 @@
             // 실제 푸시알림으로 띄우기
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 try {
+                    // 브라우저 탭 간 중복 알림 방지: 이미 같은 태그의 알림이 있는지 확인
+                    const existingNotifications = await Notification.getNotifications();
+                    const hasExistingNotification = existingNotifications.some(notification => 
+                        notification.tag === 'blooming-swim-notification'
+                    );
+                    
+                    if (hasExistingNotification) {
+                        console.log('Notification already exists, skipping');
+                        return;
+                    }
+                    
                     const n = new Notification(notificationTitle, notificationOptions);
                     n.onclick = function(event) {
                         event.preventDefault();
