@@ -13,11 +13,28 @@ from .utils import send_fcm_notification # 중복 제거
 from django.conf import settings
 import os
 import re
+from datetime import datetime
 
 
 # Create your views here.
 class FCMTokenRegisterView(APIView):
     permission_classes = [IsAuthenticated] # 로그인한 사용자만 접근 가능하도록
+    
+    def get(self, request):
+        """간단한 연결 테스트용 GET 요청"""
+        print(f"\n=== FCM API Connection Test ===")
+        print(f"User: {request.user.username} (ID: {request.user.id})")
+        print(f"Request Method: {request.method}")
+        print(f"Request Path: {request.path}")
+        print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
+        print(f"Remote Address: {request.META.get('REMOTE_ADDR', 'Unknown')}")
+        print(f"Request Headers: {dict(request.headers)}")
+        
+        return Response({
+            'message': 'FCM API is accessible',
+            'user': request.user.username,
+            'timestamp': str(datetime.now())
+        }, status=status.HTTP_200_OK)
 
     def detect_platform(self, user_agent):
         """User agent에서 플랫폼 감지"""
@@ -34,27 +51,45 @@ class FCMTokenRegisterView(APIView):
             return 'web'
 
     def post(self, request):
-        print(f"[DEBUG] FCM Token Register Request from user: {request.user.username}")
-        print(f"[DEBUG] Request data: {request.data}")
-        print(f"[DEBUG] User agent: {request.META.get('HTTP_USER_AGENT', '')}")
+        # 상세한 서버 로깅
+        print(f"\n=== FCM Token Registration Request ===")
+        print(f"User: {request.user.username} (ID: {request.user.id})")
+        print(f"Request Method: {request.method}")
+        print(f"Request Path: {request.path}")
+        print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
+        print(f"Remote Address: {request.META.get('REMOTE_ADDR', 'Unknown')}")
+        print(f"Request Headers: {dict(request.headers)}")
+        print(f"Request Data: {request.data}")
         
         registration_id = request.data.get('token')
-        device_name = request.data.get('name', None) # 선택 사항
+        device_name = request.data.get('name', None)
+        platform = request.data.get('platform', None)
+        user_agent = request.data.get('user_agent', None)
 
         if not registration_id:
-            print("[DEBUG] No registration token provided")
+            print("❌ ERROR: No registration token provided")
             return Response({'error': 'FCM registration token is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        print(f"[DEBUG] Registration token: {registration_id[:50]}...")
-        print(f"[DEBUG] Device name: {device_name}")
+        print(f"✅ Token received: {registration_id[:50]}...")
+        print(f"Device Name: {device_name}")
+        print(f"Platform: {platform}")
+        print(f"User Agent from request: {user_agent}")
 
         try:
-            # User agent와 플랫폼 정보 추출
-            user_agent = request.META.get('HTTP_USER_AGENT', '')
-            platform = self.detect_platform(user_agent)
+            # User agent와 플랫폼 정보 추출 (서버에서도 감지)
+            server_user_agent = request.META.get('HTTP_USER_AGENT', '')
+            detected_platform = self.detect_platform(server_user_agent)
             
-            print(f"[DEBUG] Detected platform: {platform}")
-            print(f"[DEBUG] User agent: {user_agent}")
+            print(f"Server detected platform: {detected_platform}")
+            print(f"Client provided platform: {platform}")
+            print(f"Server User Agent: {server_user_agent}")
+            
+            # 플랫폼 정보 통합 (클라이언트 제공 정보 우선)
+            final_platform = platform if platform else detected_platform
+            final_user_agent = user_agent if user_agent else server_user_agent
+            
+            print(f"Final platform: {final_platform}")
+            print(f"Final user agent: {final_user_agent}")
             
             # 이미 존재하는 토큰인지 확인하고 업데이트하거나 새로 생성
             fcm_device, created = FCMDevice.objects.update_or_create(
@@ -62,23 +97,35 @@ class FCMTokenRegisterView(APIView):
                 registration_id=registration_id,
                 defaults={
                     'name': device_name, 
-                    'active': True,  # 항상 활성화 상태로
-                    'user_agent': user_agent,
-                    'platform': platform
+                    'active': True,
+                    'user_agent': final_user_agent,
+                    'platform': final_platform
                 }
             )
             
-            print(f"[DEBUG] Device registered: {platform} - {user_agent[:50]}...")
-            print(f"[DEBUG] Created: {created}, Device ID: {fcm_device.id}")
+            print(f"✅ Device registration {'CREATED' if created else 'UPDATED'}")
+            print(f"Device ID: {fcm_device.id}")
+            print(f"Platform: {fcm_device.platform}")
+            print(f"Active: {fcm_device.active}")
+            print(f"Created At: {fcm_device.created_at}")
+            print(f"Updated At: {fcm_device.updated_at}")
+            
+            # 사용자의 전체 FCM 디바이스 수 확인
+            total_devices = FCMDevice.objects.filter(user=request.user).count()
+            active_devices = FCMDevice.objects.filter(user=request.user, active=True).count()
+            print(f"User total devices: {total_devices}")
+            print(f"User active devices: {active_devices}")
             
             return Response({
                 'message': 'FCM token registered successfully.', 
                 'created': created,
-                'platform': platform,
-                'device_id': fcm_device.id
+                'platform': final_platform,
+                'device_id': fcm_device.id,
+                'total_devices': total_devices,
+                'active_devices': active_devices
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            print(f"[DEBUG] Error registering FCM token: {e}")
+            print(f"❌ ERROR registering FCM token: {e}")
             import traceback
             traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -88,14 +135,40 @@ class FCMTokenDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        print(f"\n=== FCM Token Deletion Request ===")
+        print(f"User: {request.user.username} (ID: {request.user.id})")
+        print(f"Request Method: {request.method}")
+        print(f"Request Path: {request.path}")
+        print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
+        
         try:
+            # 삭제 전 상태 확인
+            before_count = FCMDevice.objects.filter(user=request.user, active=True).count()
+            print(f"Active devices before deletion: {before_count}")
+            
             # 현재 사용자의 모든 FCM 디바이스 토큰을 비활성화
             updated_count = FCMDevice.objects.filter(user=request.user, active=True).update(active=False)
+            
+            print(f"Devices deactivated: {updated_count}")
+            
+            # 삭제 후 상태 확인
+            after_count = FCMDevice.objects.filter(user=request.user, active=True).count()
+            print(f"Active devices after deletion: {after_count}")
+            
+            # 전체 디바이스 수 확인
+            total_devices = FCMDevice.objects.filter(user=request.user).count()
+            print(f"Total devices: {total_devices}")
+            
             return Response({
                 'message': f'FCM tokens deactivated successfully. Deactivated {updated_count} device(s).',
-                'deactivated_count': updated_count
+                'deactivated_count': updated_count,
+                'total_devices': total_devices,
+                'active_devices_remaining': after_count
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            print(f"❌ ERROR in FCM Token Deletion: {e}")
+            import traceback
+            traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -215,12 +288,48 @@ class FCMDeviceStatusView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        print(f"\n=== FCM Device Status Check ===")
+        print(f"User: {request.user.username} (ID: {request.user.id})")
+        print(f"Request Method: {request.method}")
+        print(f"Request Path: {request.path}")
+        print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
+        
         try:
             devices = FCMDevice.objects.filter(user=request.user)
+            active_devices = devices.filter(active=True)
+            inactive_devices = devices.filter(active=False)
+            
+            print(f"Total devices: {devices.count()}")
+            print(f"Active devices: {active_devices.count()}")
+            print(f"Inactive devices: {inactive_devices.count()}")
+            
+            # 플랫폼별 통계
+            ios_devices = devices.filter(platform='ios')
+            android_devices = devices.filter(platform='android')
+            web_devices = devices.filter(platform='web')
+            
+            print(f"iOS devices: {ios_devices.count()}")
+            print(f"Android devices: {android_devices.count()}")
+            print(f"Web devices: {web_devices.count()}")
+            
+            # 각 디바이스 상세 정보
+            for device in devices:
+                print(f"Device {device.id}: {device.name} ({device.platform}) - Active: {device.active}")
+                print(f"  Created: {device.created_at}")
+                print(f"  Updated: {device.updated_at}")
+                print(f"  Token: {device.registration_id[:50]}..." if device.registration_id else "  Token: None")
             
             return Response({
                 'user': request.user.username,
+                'user_id': request.user.id,
                 'device_count': devices.count(),
+                'active_devices': active_devices.count(),
+                'inactive_devices': inactive_devices.count(),
+                'platform_stats': {
+                    'ios': ios_devices.count(),
+                    'android': android_devices.count(),
+                    'web': web_devices.count()
+                },
                 'devices': [
                     {
                         'id': device.id,
@@ -228,12 +337,17 @@ class FCMDeviceStatusView(APIView):
                         'platform': device.platform,
                         'active': device.active,
                         'created_at': device.created_at.isoformat(),
-                        'registration_id': device.registration_id[:50] + '...' if device.registration_id else None
+                        'updated_at': device.updated_at.isoformat(),
+                        'registration_id': device.registration_id[:50] + '...' if device.registration_id else None,
+                        'user_agent': device.user_agent[:100] + '...' if device.user_agent else None
                     }
                     for device in devices
                 ]
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            print(f"❌ ERROR in FCM Device Status Check: {e}")
+            import traceback
+            traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

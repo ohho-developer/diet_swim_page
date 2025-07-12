@@ -54,6 +54,10 @@
         
         // 전역 변수로 설정하여 다른 페이지에서도 사용할 수 있도록 함
         window.messaging = messaging;
+        
+        // 중복 호출 방지를 위한 플래그
+        let fcmTokenRegistrationInProgress = false;
+        let fcmTokenRegistered = false;
 
         // 서비스 워커 등록
         // service-worker.js 파일이 웹 서버 루트에 있어야 합니다.
@@ -61,8 +65,10 @@
         navigator.serviceWorker.register('/firebase-messaging-sw.js')
             .then((registration) => {
                 console.log('Service Worker registered with scope:', registration.scope);
-                // 푸시 알림 권한 요청 및 토큰 가져오기
-                requestPermissionAndGetToken(messaging, registration);
+                // 푸시 알림 권한 요청 및 토큰 가져오기 (중복 방지)
+                if (!fcmTokenRegistered) {
+                    requestPermissionAndGetToken(messaging, registration);
+                }
             })
             .catch((error) => {
                 console.error('Service Worker registration failed:', error);
@@ -101,31 +107,33 @@
 
         // 푸시 알림 권한 요청 및 토큰 가져오기 함수
         function requestPermissionAndGetToken(messaging, serviceWorkerRegistration) {
+            // 중복 호출 방지
+            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
+                return;
+            }
+            
+            fcmTokenRegistrationInProgress = true;
+            
             Notification.requestPermission().then((permission) => {
                 if (permission === 'granted') {
-                    console.log('Notification permission granted.');
-
                     getToken(messaging, { serviceWorkerRegistration: serviceWorkerRegistration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' }).then((currentToken) => {
                         if (currentToken) {
-                            console.log('Current FCM Token:', currentToken);
-                            // TODO: 이 토큰을 Django 백엔드로 전송합니다.
                             sendTokenToServer(currentToken);
+                            fcmTokenRegistered = true;
                         } else {
-                            console.warn('No FCM registration token available. Request permission to generate one.');
+                            fcmTokenRegistrationInProgress = false;
                         }
                     }).catch((err) => {
-                        console.error('An error occurred while retrieving token. ', err);
+                        fcmTokenRegistrationInProgress = false;
                     });
                 } else {
-                    console.warn('Unable to get permission to notify.');
+                    fcmTokenRegistrationInProgress = false;
                 }
             });
         }
 
         // 토큰을 Django 백엔드로 전송하는 함수 (fetch API 사용)
         function sendTokenToServer(token) {
-            console.log('Sending token to server:', token);
-            
             // iOS Safari 감지
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
@@ -149,11 +157,8 @@
                 user_agent: navigator.userAgent
             };
             
-            console.log('Request data:', requestData);
-            console.log('Request headers:', headers);
-            
             // 올바른 API 엔드포인트 URL 사용
-            fetch('/api/fcm/register/', {
+            fetch('/api/notification/fcm/register/', {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(requestData),
@@ -162,9 +167,6 @@
                 mode: 'cors'
             })
             .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-                
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -172,42 +174,30 @@
                 return response.json();
             })
             .then(data => {
-                console.log('Token sent to server successfully:', data);
-                
                 // 성공 메시지 표시
                 if (isIOS && isSafari) {
-                    showNotificationMessage('✅ iOS 푸시 알림이 설정되었습니다!', 'success');
+                    showNotificationMessage('✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!', 'success');
                 } else {
                     showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
                 }
             })
             .catch(error => {
-                console.error('Error sending token to server:', error);
-                console.log('Error details:', {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack
-                });
+                // iOS Safari 특별 처리
+                if (isIOS && isSafari) {
+                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다. PWA 모드에서만 제한적으로 작동합니다.', 'warning');
+                } else {
+                    showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
+                }
                 
                 // iOS Safari에서 fetch 실패 시 XMLHttpRequest로 재시도
                 if (isIOS && isSafari) {
-                    console.log('Retrying with XMLHttpRequest for iOS Safari...');
                     sendTokenToServerWithXHR(token);
-                } else {
-                    // iOS Safari 전용 오류 처리
-                    if (isIOS && isSafari) {
-                        showNotificationMessage('❌ iOS에서 서버 연결에 실패했습니다. 네트워크를 확인해주세요.', 'error');
-                    } else {
-                        showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
-                    }
                 }
             });
         }
 
         // iOS Safari 전용 XMLHttpRequest 방식 (fetch 실패 시 대체)
         function sendTokenToServerWithXHR(token) {
-            console.log('Using XMLHttpRequest for iOS Safari');
-            
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             
@@ -219,47 +209,51 @@
             };
             
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/fcm/register/', true);
+            xhr.open('POST', '/api/notification/fcm/register/', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
-                    console.log('XHR Response status:', xhr.status);
-                    console.log('XHR Response:', xhr.responseText);
-                    
                     if (xhr.status === 200) {
                         try {
                             const data = JSON.parse(xhr.responseText);
-                            console.log('Token sent to server successfully via XHR:', data);
                             
                             if (isIOS && isSafari) {
-                                showNotificationMessage('✅ iOS 푸시 알림이 설정되었습니다!', 'success');
+                                showNotificationMessage('✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!', 'success');
                             } else {
                                 showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
                             }
                         } catch (e) {
-                            console.error('Error parsing XHR response:', e);
                             showNotificationMessage('❌ 서버 응답을 처리할 수 없습니다.', 'error');
                         }
                     } else {
-                        console.error('XHR failed with status:', xhr.status);
-                        showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
+                        if (isIOS && isSafari) {
+                            showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
+                        } else {
+                            showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
+                        }
                     }
                 }
             };
             
             xhr.onerror = function() {
-                console.error('XHR network error');
-                showNotificationMessage('❌ 네트워크 오류가 발생했습니다.', 'error');
+                if (isIOS && isSafari) {
+                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
+                } else {
+                    showNotificationMessage('❌ 네트워크 오류가 발생했습니다.', 'error');
+                }
             };
             
             try {
                 xhr.send(JSON.stringify(requestData));
             } catch (e) {
-                console.error('Error sending XHR request:', e);
-                showNotificationMessage('❌ 요청 전송에 실패했습니다.', 'error');
+                if (isIOS && isSafari) {
+                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
+                } else {
+                    showNotificationMessage('❌ 요청 전송에 실패했습니다.', 'error');
+                }
             }
         }
 
@@ -281,29 +275,39 @@
         }
         
         // iOS Safari PWA 알림 권한 요청
-        function checkIOSPWANotification() {
+        async function checkIOSPWANotification() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
-            console.log('iOS PWA Check:', { isIOS, isSafari, isStandalone, permission: Notification.permission });
-            
-            // iOS Safari에서 PWA로 실행 중이고 알림 권한이 없으면 요청
-            if (isIOS && isSafari && isStandalone && Notification.permission === 'default') {
-                // 5초 후 알림 권한 요청
-                setTimeout(() => {
+            if (isIOS && isSafari) {
+                // 웹 푸시 지원 확인
+                const pushSupport = await checkWebPushSupport();
+                
+                if (pushSupport.supported && isStandalone) {
+                    // PWA 모드에서 푸시 지원됨
                     if (Notification.permission === 'default') {
-                        showNotificationPermissionModal();
+                        // 5초 후 알림 권한 요청
+                        setTimeout(() => {
+                            if (Notification.permission === 'default') {
+                                showNotificationPermissionModal();
+                            }
+                        }, 5000);
+                    } else if (Notification.permission === 'granted' && !fcmTokenRegistered) {
+                        // 권한이 있고 토큰이 등록되지 않았으면 등록 시도
+                        setTimeout(() => {
+                            if (!fcmTokenRegistered) {
+                                handleIOSFCMRegistration(pushSupport.registration);
+                            }
+                        }, 2000);
                     }
-                }, 5000);
-            }
-            
-            // iOS Safari PWA에서 FCM 토큰 등록 시도
-            if (isIOS && isSafari && isStandalone && Notification.permission === 'granted') {
-                console.log('iOS Safari PWA detected with notification permission');
-                setTimeout(() => {
-                    handleIOSFCMRegistration();
-                }, 2000);
+                } else if (!pushSupport.supported && isStandalone) {
+                    // PWA 모드이지만 푸시 미지원
+                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
+                } else if (!isStandalone) {
+                    // 표준 Safari 모드
+                    showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
+                }
             }
         }
         
@@ -325,7 +329,8 @@
                     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);">
                         <h3 style="color: #198754; margin-bottom: 20px;">🌊 알림 설정</h3>
                         <p style="margin-bottom: 20px; line-height: 1.6; color: #666;">Blooming Swim에서 중요한 알림을 받아보세요!</p>
-                        <p style="font-size: 14px; color: #888; margin-bottom: 25px;">건강한 습관을 잊지 않도록 도와드릴게요.</p>
+                        <p style="font-size: 14px; color: #888; margin-bottom: 15px;">건강한 습관을 잊지 않도록 도와드릴게요.</p>
+                        <p style="font-size: 12px; color: #ff6b35; margin-bottom: 25px; font-weight: 600;">⚠️ iOS Safari에서는 PWA 모드에서만 푸시 알림이 작동합니다.</p>
                         <div>
                             <button id="requestNotificationBtn" style="background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin: 5px; cursor: pointer;">알림 허용하기</button>
                             <button id="skipNotificationBtn" style="background: #6c757d; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin: 5px; cursor: pointer;">나중에 하기</button>
@@ -336,12 +341,34 @@
             document.body.insertAdjacentHTML('beforeend', modalHTML);
             
             // 버튼 이벤트 리스너 추가
-            document.getElementById('requestNotificationBtn').addEventListener('click', function() {
-                Notification.requestPermission().then(function(permission) {
+            document.getElementById('requestNotificationBtn').addEventListener('click', async function() {
+                Notification.requestPermission().then(async function(permission) {
                     if (permission === 'granted') {
-                        console.log('iOS Safari PWA 알림 권한이 허용되었습니다!');
-                        // FCM 토큰 재등록 시도
-                        requestPermissionAndGetToken(messaging, navigator.serviceWorker.ready);
+                        // iOS Safari 특별 처리
+                        const iosSupport = await detectIOSPushSupport();
+                        
+                        if (iosSupport.supported) {
+                            // iOS Safari에서 푸시 지원됨
+                            handleIOSFCMRegistration(iosSupport.registration);
+                        } else if (iosSupport.reason === 'iOS Safari web push not supported') {
+                            // iOS Safari에서 푸시 미지원
+                            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                            if (!isStandalone) {
+                                showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
+                            } else {
+                                showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
+                            }
+                        } else {
+                            // 일반 브라우저 처리
+                            const pushSupport = await checkWebPushSupport();
+                            if (pushSupport.supported) {
+                                requestPermissionAndGetToken(messaging, pushSupport.registration);
+                            } else {
+                                showNotificationMessage('❌ 이 브라우저는 푸시 알림을 지원하지 않습니다.', 'error');
+                            }
+                        }
+                    } else {
+                        showNotificationMessage('❌ 알림 권한이 거부되었습니다.', 'error');
                     }
                     hideNotificationPermissionModal();
                 });
@@ -368,82 +395,119 @@
             checkFCMTokenStatus();
         });
         
-        // FCM 토큰 등록 상태 확인 함수
-        function checkFCMTokenStatus() {
-            // 3초 후 토큰 등록 시도
-            setTimeout(() => {
-                console.log('=== FCM Token Registration Check ===');
-                console.log('Notification permission:', Notification.permission);
-                console.log('Service Worker support:', 'serviceWorker' in navigator);
-                console.log('Firebase messaging available:', typeof messaging !== 'undefined');
+        // 웹 푸시 지원 확인 함수
+        async function checkWebPushSupport() {
+            // 1. Service Worker 지원 확인
+            if (!('serviceWorker' in navigator)) {
+                return { supported: false, reason: 'Service Worker not supported' };
+            }
+            
+            try {
+                // 2. Service Worker 등록
+                const registration = await navigator.serviceWorker.ready;
                 
-                // iOS Safari 감지
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-                console.log('iOS Safari detected:', isIOS && isSafari);
+                // 3. Push Manager 지원 확인
+                if (!('pushManager' in registration)) {
+                    return { supported: false, reason: 'Push Manager not supported' };
+                }
+                
+                return { supported: true, registration };
+            } catch (error) {
+                return { supported: false, reason: 'Service Worker registration failed', error };
+            }
+        }
+        
+        // iOS Safari 푸시 지원 감지 함수
+        async function detectIOSPushSupport() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            if (isIOS && isSafari) {
+                // Service Worker와 Push Manager 확인
+                const pushSupport = await checkWebPushSupport();
+                
+                if (pushSupport.supported) {
+                    return { 
+                        supported: true, 
+                        mode: isStandalone ? 'PWA' : 'Safari',
+                        message: isStandalone ? 'PWA 모드에서 푸시 알림이 지원됩니다' : 'Safari에서는 푸시 알림이 제한적입니다',
+                        registration: pushSupport.registration
+                    };
+                } else {
+                    return { 
+                        supported: false, 
+                        reason: 'iOS Safari web push not supported',
+                        message: 'iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다'
+                    };
+                }
+            }
+            
+            return { supported: false, reason: 'Not iOS Safari' };
+        }
+        
+        // FCM 토큰 등록 상태 확인 함수
+        async function checkFCMTokenStatus() {
+            // 중복 호출 방지
+            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
+                return;
+            }
+            
+            // 3초 후 토큰 등록 시도
+            setTimeout(async () => {
+                // 다시 한번 중복 확인
+                if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
+                    return;
+                }
                 
                 if (Notification.permission === 'granted') {
-                    console.log('Notification permission granted, checking FCM token...');
-                    
                     // iOS Safari 특별 처리
-                    if (isIOS && isSafari) {
-                        console.log('iOS Safari detected - using special handling');
-                        handleIOSFCMRegistration();
+                    const iosSupport = await detectIOSPushSupport();
+                    
+                    if (iosSupport.supported) {
+                        // iOS Safari에서 푸시 지원됨 (PWA 모드)
+                        handleIOSFCMRegistration(iosSupport.registration);
+                        return;
+                    } else if (iosSupport.reason === 'iOS Safari web push not supported') {
+                        // iOS Safari에서 푸시 미지원 (표준 모드)
+                        const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                        
+                        if (!isStandalone) {
+                            showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
+                        } else {
+                            showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
+                        }
                         return;
                     }
                     
                     // 일반 브라우저 처리
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.ready.then(function(registration) {
-                            console.log('Service Worker ready:', registration);
-                            console.log('Service Worker scope:', registration.scope);
-                            
-                            // FCM 토큰 요청
-                            getToken(messaging, { 
-                                serviceWorkerRegistration: registration, 
-                                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
-                            }).then((currentToken) => {
-                                if (currentToken) {
-                                    console.log('✅ FCM Token obtained successfully');
-                                    console.log('Token preview:', currentToken.substring(0, 50) + '...');
-                                    console.log('Token length:', currentToken.length);
-                                    sendTokenToServer(currentToken);
-                                    
-                                    // 성공 메시지 표시
-                                    showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
-                                } else {
-                                    console.warn('❌ No FCM token available');
-                                    console.log('This might be due to:');
-                                    console.log('- Service Worker not properly registered');
-                                    console.log('- Firebase configuration issues');
-                                    console.log('- Browser compatibility issues');
-                                    
-                                    // 실패 메시지 표시
-                                    showNotificationMessage('❌ 푸시 알림 설정에 실패했습니다. 브라우저를 새로고침해주세요.', 'error');
-                                }
-                            }).catch((err) => {
-                                console.error('❌ Error getting FCM token:', err);
-                                console.log('Error details:', {
-                                    name: err.name,
-                                    message: err.message,
-                                    stack: err.stack
-                                });
+                    const pushSupport = await checkWebPushSupport();
+                    
+                    if (pushSupport.supported) {
+                        // 웹 푸시 지원됨
+                        getToken(messaging, { 
+                            serviceWorkerRegistration: pushSupport.registration, 
+                            vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
+                        }).then((currentToken) => {
+                            if (currentToken) {
+                                sendTokenToServer(currentToken);
+                                fcmTokenRegistered = true;
                                 
-                                // 오류 메시지 표시
-                                showNotificationMessage('❌ 푸시 알림 설정 중 오류가 발생했습니다.', 'error');
-                            });
+                                // 성공 메시지 표시
+                                showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
+                            } else {
+                                // 실패 메시지 표시
+                                showNotificationMessage('❌ 푸시 알림 설정에 실패했습니다. 브라우저를 새로고침해주세요.', 'error');
+                            }
                         }).catch((err) => {
-                            console.error('❌ Service Worker registration failed:', err);
-                            showNotificationMessage('❌ 서비스 워커 등록에 실패했습니다.', 'error');
+                            // 오류 메시지 표시
+                            showNotificationMessage('❌ 푸시 알림 설정 중 오류가 발생했습니다.', 'error');
                         });
                     } else {
-                        console.log('❌ Service Worker not supported in this browser');
+                        // 웹 푸시 미지원
                         showNotificationMessage('❌ 이 브라우저는 푸시 알림을 지원하지 않습니다.', 'error');
                     }
                 } else {
-                    console.log('❌ Notification permission not granted:', Notification.permission);
-                    console.log('User needs to grant notification permission first');
-                    
                     // 권한 요청 메시지 표시
                     showNotificationMessage('🔔 알림 권한을 허용해주세요.', 'info');
                 }
@@ -451,45 +515,57 @@
         }
         
         // iOS Safari 전용 FCM 등록 처리
-        function handleIOSFCMRegistration() {
-            console.log('=== iOS Safari FCM Registration ===');
-            
-            // iOS Safari에서는 Service Worker 없이도 토큰 생성 시도
-            if (typeof messaging !== 'undefined') {
-                getToken(messaging, { 
-                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
-                }).then((currentToken) => {
-                    if (currentToken) {
-                        console.log('✅ iOS Safari FCM Token obtained successfully');
-                        console.log('Token preview:', currentToken.substring(0, 50) + '...');
-                        console.log('Token length:', currentToken.length);
-                        sendTokenToServer(currentToken);
-                        
-                        // 성공 메시지 표시
-                        showNotificationMessage('✅ iOS 푸시 알림이 설정되었습니다!', 'success');
-                    } else {
-                        console.warn('❌ iOS Safari: No FCM token available');
-                        console.log('iOS Safari limitations:');
-                        console.log('- Web push notifications are limited on iOS Safari');
-                        console.log('- May need to use PWA mode for better support');
-                        
-                        // iOS 제한사항 안내
-                        showNotificationMessage('ℹ️ iOS Safari에서는 푸시 알림이 제한적입니다. PWA로 실행해보세요.', 'warning');
-                    }
-                }).catch((err) => {
-                    console.error('❌ iOS Safari FCM token error:', err);
-                    console.log('iOS Safari FCM limitations:', {
-                        name: err.name,
-                        message: err.message
-                    });
-                    
-                    // iOS 제한사항 안내
-                    showNotificationMessage('ℹ️ iOS Safari에서는 푸시 알림이 제한적입니다.', 'warning');
-                });
-            } else {
-                console.log('❌ Firebase messaging not available on iOS Safari');
-                showNotificationMessage('ℹ️ iOS Safari에서는 푸시 알림이 제한적입니다.', 'warning');
+        function handleIOSFCMRegistration(registration = null) {
+            // 중복 호출 방지
+            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
+                return;
             }
+            
+            fcmTokenRegistrationInProgress = true;
+            
+            // iOS Safari에서는 Firebase Messaging이 제한적일 수 있음
+            if (typeof messaging === 'undefined') {
+                fcmTokenRegistrationInProgress = false;
+                return;
+            }
+            
+            // Service Worker 등록이 있으면 사용, 없으면 vapidKey만 사용
+            const tokenOptions = registration ? 
+                { serviceWorkerRegistration: registration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' } :
+                { vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' };
+            
+            getToken(messaging, tokenOptions).then((currentToken) => {
+                if (currentToken) {
+                    sendTokenToServer(currentToken);
+                    fcmTokenRegistered = true;
+                    
+                    // 성공 메시지 표시
+                    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                    if (isStandalone) {
+                        showNotificationMessage('✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!', 'success');
+                    } else {
+                        showNotificationMessage('✅ iOS Safari에서 푸시 알림이 설정되었습니다!', 'success');
+                    }
+                } else {
+                    // iOS 제한사항 안내
+                    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                    if (!isStandalone) {
+                        showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
+                    } else {
+                        showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
+                    }
+                    fcmTokenRegistrationInProgress = false;
+                }
+            }).catch((err) => {
+                // iOS 제한사항 안내
+                const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                if (!isStandalone) {
+                    showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
+                } else {
+                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
+                }
+                fcmTokenRegistrationInProgress = false;
+            });
         }
         
         // 알림 메시지 표시 함수
@@ -587,7 +663,7 @@
             console.log('Sending test request...');
             
             // fetch 테스트
-            fetch('/api/fcm/register/', {
+            fetch('/api/notification/fcm/register/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -609,7 +685,7 @@
                 // XMLHttpRequest 테스트
                 console.log('Trying XMLHttpRequest...');
                 const xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/fcm/register/', true);
+                xhr.open('POST', '/api/notification/fcm/register/', true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -626,57 +702,50 @@
         };
         
         // iOS Safari 전용 테스트 함수
-        window.testIOSFCMRegistration = function() {
-            console.log('=== iOS Safari FCM Registration Test ===');
+        window.testIOSFCMRegistration = async function() {
+            const iosSupport = await detectIOSPushSupport();
             
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            
-            console.log('iOS detected:', isIOS);
-            console.log('Safari detected:', isSafari);
-            console.log('User Agent:', navigator.userAgent);
-            
-            if (!isIOS || !isSafari) {
+            if (!iosSupport.supported && iosSupport.reason === 'Not iOS Safari') {
                 console.log('❌ This is not iOS Safari');
                 return;
             }
             
             if (Notification.permission !== 'granted') {
-                console.log('❌ Notification permission not granted. Requesting permission...');
-                Notification.requestPermission().then(function(permission) {
+                Notification.requestPermission().then(async function(permission) {
                     if (permission === 'granted') {
-                        console.log('✅ Notification permission granted');
-                        handleIOSFCMRegistration();
-                    } else {
-                        console.log('❌ Notification permission denied');
+                        const newIOSSupport = await detectIOSPushSupport();
+                        if (newIOSSupport.supported) {
+                            handleIOSFCMRegistration(newIOSSupport.registration);
+                        }
                     }
                 });
                 return;
             }
             
-            console.log('✅ iOS Safari detected with notification permission');
-            handleIOSFCMRegistration();
+            if (iosSupport.supported) {
+                handleIOSFCMRegistration(iosSupport.registration);
+            } else {
+                console.log('❌ iOS Safari web push not supported');
+                console.log('Reason:', iosSupport.reason);
+                console.log('Message:', iosSupport.message);
+            }
         };
         
         // 수동 FCM 토큰 등록 테스트 함수
-        window.testFCMTokenRegistration = function() {
-            console.log('=== Manual FCM Token Registration Test ===');
-            
+        window.testFCMTokenRegistration = async function() {
             if (Notification.permission !== 'granted') {
-                console.log('❌ Notification permission not granted. Requesting permission...');
-                Notification.requestPermission().then(function(permission) {
+                Notification.requestPermission().then(async function(permission) {
                     if (permission === 'granted') {
-                        console.log('✅ Notification permission granted');
-                        checkFCMTokenStatus();
-                    } else {
-                        console.log('❌ Notification permission denied');
+                        await checkFCMTokenStatus();
                     }
                 });
                 return;
             }
             
-            if (!('serviceWorker' in navigator)) {
-                console.log('❌ Service Worker not supported');
+            const pushSupport = await checkWebPushSupport();
+            if (!pushSupport.supported) {
+                console.log('❌ Web push not supported');
+                console.log('Reason:', pushSupport.reason);
                 return;
             }
             
@@ -685,34 +754,85 @@
                 return;
             }
             
-            console.log('✅ All prerequisites met, attempting FCM token registration...');
-            checkFCMTokenStatus();
+            await checkFCMTokenStatus();
         };
         
         // FCM 토큰 강제 재생성 함수
         window.forceFCMTokenRefresh = function() {
-            console.log('=== Force FCM Token Refresh ===');
-            
             if (typeof messaging === 'undefined') {
-                console.log('❌ Firebase messaging not available');
                 return;
             }
             
             // 기존 토큰 삭제 후 새로 생성
             deleteToken(messaging).then(() => {
-                console.log('✅ Old token deleted');
                 return getToken(messaging, { 
                     vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
                 });
             }).then((token) => {
                 if (token) {
-                    console.log('✅ New FCM token generated:', token.substring(0, 50) + '...');
                     sendTokenToServer(token);
-                } else {
-                    console.log('❌ Failed to generate new token');
                 }
             }).catch((err) => {
-                console.error('❌ Error refreshing FCM token:', err);
+                // 오류 처리
+            });
+        };
+        
+        // 서버 연결 테스트 함수
+        window.testServerConnection = function() {
+            console.log('=== Testing Server Connection ===');
+            
+            // GET 요청으로 연결 테스트
+            fetch('/api/notification/fcm/register/', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                }
+            })
+            .then(response => {
+                console.log('Connection test response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Connection test successful:', data);
+                showNotificationMessage('✅ 서버 연결이 정상입니다!', 'success');
+            })
+            .catch(error => {
+                console.error('Connection test failed:', error);
+                showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
+            });
+        };
+        
+        // 간단한 POST 요청 테스트
+        window.testPostRequest = function() {
+            console.log('=== Testing POST Request ===');
+            
+            const testData = {
+                token: 'test_token_123',
+                name: 'Test Device',
+                platform: 'web',
+                user_agent: navigator.userAgent
+            };
+            
+            fetch('/api/notification/fcm/register/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify(testData)
+            })
+            .then(response => {
+                console.log('POST test response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('POST test successful:', data);
+                showNotificationMessage('✅ POST 요청이 정상입니다!', 'success');
+            })
+            .catch(error => {
+                console.error('POST test failed:', error);
+                showNotificationMessage('❌ POST 요청에 실패했습니다.', 'error');
             });
         };
     </script>
