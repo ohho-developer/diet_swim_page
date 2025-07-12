@@ -477,10 +477,26 @@ def perform_regression_analysis(checkins, question_keys):
         y_pred = best_model.predict(X)
         residuals = y - y_pred
         mse = np.sum(residuals**2) / (len(y) - len(question_keys) - 1)
-        var_b = mse * np.linalg.inv(np.dot(X.T, X)).diagonal()
-        sd_b = np.sqrt(var_b)
-        t_b = best_coefs / sd_b
-        p_values = 2 * (1 - stats.t.cdf(abs(t_b), len(y) - len(question_keys) - 1))
+        
+        # 더 안전한 방법으로 표준오차 계산
+        try:
+            XTX = np.dot(X.T, X)
+            # 행렬이 특이행렬인지 확인
+            if np.linalg.det(XTX) == 0:
+                # 특이행렬인 경우 p값을 None으로 설정
+                p_values = np.array([None] * len(question_keys))
+            else:
+                var_b = mse * np.linalg.inv(XTX).diagonal()
+                sd_b = np.sqrt(var_b)
+                # 0으로 나누기 방지
+                sd_b = np.where(sd_b == 0, np.inf, sd_b)
+                t_b = best_coefs / sd_b
+                # inf 값 처리
+                t_b = np.where(np.isinf(t_b), 0, t_b)
+                p_values = 2 * (1 - stats.t.cdf(abs(t_b), len(y) - len(question_keys) - 1))
+        except (np.linalg.LinAlgError, ValueError):
+            # 선형대수 오류가 발생하면 p값을 None으로 설정
+            p_values = np.array([None] * len(question_keys))
         
         return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2
     
