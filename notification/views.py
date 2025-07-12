@@ -208,16 +208,19 @@ class FCMTokenRegisterView(APIView):
     def extract_browser_info(self, user_agent):
         """User agent에서 브라우저 정보 추출"""
         if not user_agent:
-            return None
+            return 'Unknown'
         
         user_agent_lower = user_agent.lower()
         
-        if 'chrome' in user_agent_lower:
+        # PWA standalone 모드 감지
+        if 'standalone' in user_agent_lower:
+            return 'PWA (Standalone)'
+        elif 'chrome' in user_agent_lower:
             return 'Chrome'
-        elif 'safari' in user_agent_lower and 'chrome' not in user_agent_lower:
-            return 'Safari'
         elif 'firefox' in user_agent_lower:
             return 'Firefox'
+        elif 'safari' in user_agent_lower and 'chrome' not in user_agent_lower:
+            return 'Safari'
         elif 'edge' in user_agent_lower:
             return 'Edge'
         elif 'opera' in user_agent_lower:
@@ -232,7 +235,10 @@ class FCMTokenRegisterView(APIView):
         
         user_agent_lower = user_agent.lower()
         
-        if any(keyword in user_agent_lower for keyword in ['mobile', 'android', 'iphone', 'ipad']):
+        # PWA standalone 모드 감지
+        if 'standalone' in user_agent_lower:
+            return 'pwa'
+        elif 'mobile' in user_agent_lower or 'android' in user_agent_lower or 'iphone' in user_agent_lower or 'ipad' in user_agent_lower:
             return 'mobile'
         elif 'tablet' in user_agent_lower:
             return 'tablet'

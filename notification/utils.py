@@ -82,6 +82,7 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     특정 사용자에게 FCM 푸시 알림을 보냅니다.
     백그라운드/앱이 꺼져있을 때도 받을 수 있는 실제 푸시 알림
     중복 알림 방지를 위해 한 사용자당 하나의 디바이스에만 전송
+    PWA 우선, 브라우저 차선 선택
     """
     # Firebase Admin SDK 초기화 확인 및 재시도
     try:
@@ -119,18 +120,50 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
         # FCM 디바이스가 없으면 실패로 처리
         return False
     
-    # 중복 알림 방지: 한 사용자당 하나의 디바이스만 사용
-    # 가장 최근에 업데이트된 디바이스 선택
-    latest_device = devices.order_by('-updated_at').first()
-    if not latest_device:
+    # PWA와 브라우저 중복 방지: PWA 우선 선택
+    selected_device = None
+    
+    # 1. PWA 디바이스 찾기 (standalone 모드)
+    pwa_devices = devices.filter(
+        user_agent__icontains='standalone',
+        platform='web'
+    ).order_by('-updated_at')
+    
+    if pwa_devices.exists():
+        selected_device = pwa_devices.first()
+        print(f"[DEBUG] Selected PWA device for user: {user.username} - {selected_device.name}")
+    else:
+        # 2. 일반 브라우저 디바이스 찾기 (PWA가 없는 경우)
+        browser_devices = devices.filter(
+            platform='web'
+        ).exclude(
+            user_agent__icontains='standalone'
+        ).order_by('-updated_at')
+        
+        if browser_devices.exists():
+            selected_device = browser_devices.first()
+            print(f"[DEBUG] Selected browser device for user: {user.username} - {selected_device.name}")
+        else:
+            # 3. 웹이 아닌 다른 플랫폼 (iOS, Android)
+            other_devices = devices.exclude(platform='web').order_by('-updated_at')
+            if other_devices.exists():
+                selected_device = other_devices.first()
+                print(f"[DEBUG] Selected other platform device for user: {user.username} - {selected_device.name} ({selected_device.platform})")
+            else:
+                # 4. 마지막 수단: 가장 최근 업데이트된 디바이스
+                selected_device = devices.order_by('-updated_at').first()
+                print(f"[DEBUG] Selected latest device for user: {user.username} - {selected_device.name}")
+    
+    if not selected_device:
         print(f"No valid device found for user: {user.username}")
         return False
     
-    print(f"[DEBUG] Using latest device for user: {user.username} - {latest_device.name} ({latest_device.platform})")
-    print(f"[DEBUG] Device token: {latest_device.registration_id[:20]}...")
+    print(f"[DEBUG] Final selected device: {selected_device.name} ({selected_device.platform})")
+    print(f"[DEBUG] Device token: {selected_device.registration_id[:20]}...")
+    print(f"[DEBUG] User agent: {selected_device.user_agent[:100]}...")
     
     # 단일 디바이스로 처리 (중복 방지)
-    devices = [latest_device]
+    devices = [selected_device]
     
     # 중복 전송 방지를 위한 고유 식별자 추가
     import hashlib

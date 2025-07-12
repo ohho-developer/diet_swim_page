@@ -271,13 +271,26 @@
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
+            // PWA standalone 모드 감지
+            let deviceName, deviceType, browserInfo;
+            
+            if (isStandalone) {
+                deviceName = isIOS ? 'iOS PWA' : 'Web PWA';
+                deviceType = 'pwa';
+                browserInfo = 'PWA (Standalone)';
+            } else {
+                deviceName = isIOS ? 'iOS Safari' : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser');
+                deviceType = isIOS ? 'mobile' : (navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop');
+                browserInfo = getBrowserInfo();
+            }
+            
             return {
                 token: token,
-                name: isIOS ? (isStandalone ? 'iOS PWA' : 'iOS Safari') : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
+                name: deviceName,
                 platform: isIOS ? 'ios' : 'web',
-                user_agent: navigator.userAgent,
-                device_type: isIOS ? 'mobile' : (navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'),
-                browser: getBrowserInfo(),
+                user_agent: navigator.userAgent + (isStandalone ? ' standalone' : ''),
+                device_type: deviceType,
+                browser: browserInfo,
                 app_version: getAppVersion(),
                 screen_info: {
                     width: screen.width,
