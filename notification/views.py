@@ -439,50 +439,34 @@ User = get_user_model()
 
 class ScheduledNotificationTrigger(APIView):
     """
-    일일 알림 전송을 위한 통합 뷰
-    - 브라우저 요청: 로그인한 사용자에게 테스트 알림 전송
-    - Cron job 요청: 모든 활성 사용자에게 일일 알림 전송
+    일일 알림 전송을 위한 cron-job 전용 뷰
+    - cron-job.org에서만 호출됨
+    - 모든 활성 사용자에게 일일 알림 전송
     """
     def post(self, request):
-        # 요청 출처 확인
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
-        is_browser_request = any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox'])
+        # Cron job 시크릿 키 확인
+        cron_secret = request.headers.get('X-Secret-Key')
+        print(f"Received cron secret: {cron_secret}")
+        print(f"Expected cron secret: {settings.CRON_SECRET_KEY}")
         
-        # Cron job 시크릿 키 확인 (외부 요청인 경우)
-        if not is_browser_request:
-            cron_secret = request.headers.get('X-Secret-Key')
-            print(f"Received cron secret: {cron_secret}")
-            print(f"Expected cron secret: {settings.CRON_SECRET_KEY}")
-            if not cron_secret or cron_secret != settings.CRON_SECRET_KEY:
-                return Response({'error': 'Invalid cron secret'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not cron_secret or cron_secret != settings.CRON_SECRET_KEY:
+            return Response({'error': 'Invalid cron secret'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            if is_browser_request:
-                # 브라우저 요청: 로그인한 사용자 본인에게만 알림
-                if not request.user.is_authenticated:
-                    return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-                
-                title = "테스트 알림"
-                body = f"{request.user.username}님, 테스트 알림입니다!"
-                data = {"type": "test_notification", "user_id": str(request.user.id)}
-                
-                if send_fcm_notification(request.user, title, body, data, data_only=True):
-                    return Response({
-                        'message': 'Test notification sent successfully',
-                        'users_notified': 1,
-                        'total_users': 1
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({'error': 'Failed to send notification'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            else:
-                # 외부 cron job: 모든 활성 사용자에게 알림
-                User = get_user_model()
-                users_to_notify = User.objects.filter(is_active=True)
-                sent_count = 0
-                ios_count = 0
-                web_count = 0
-                
-                for user in users_to_notify:
+            # 모든 활성 사용자에게 알림 전송
+            User = get_user_model()
+            users_to_notify = User.objects.filter(is_active=True)
+            sent_count = 0
+            ios_count = 0
+            web_count = 0
+            failed_count = 0
+            retry_users = []
+            
+            print(f"[CRON] Starting notification to {users_to_notify.count()} users")
+            
+            # 1차 전송
+            for user in users_to_notify:
+                try:
                     title = "오늘 하루 잘 보내셨나요?"
                     body = f"{user.username}님, 잊지 않으셨죠? 오늘을 기록해보세요."
                     data = {"type": "daily_evening_message", "user_id": str(user.id)}
@@ -490,21 +474,38 @@ class ScheduledNotificationTrigger(APIView):
                     # iOS 사용자 확인
                     is_ios_user = any(device.is_ios_device() for device in user.fcm_devices.filter(active=True))
                     
+                    print(f"[CRON] Sending to {user.username} (iOS: {is_ios_user})")
+                    
                     if send_fcm_notification(user, title, body, data):
                         sent_count += 1
                         if is_ios_user:
                             ios_count += 1
                         else:
                             web_count += 1
-                    print(f"Notification sent to {user.username} (iOS: {is_ios_user})")
-                
-                return Response({
-                    'message': 'Scheduled task executed successfully',
-                    'users_notified': sent_count,
-                    'ios_users': ios_count,
-                    'web_users': web_count,
-                    'total_users': users_to_notify.count()
-                }, status=status.HTTP_200_OK)
-                
+                        print(f"[CRON] Success: {user.username}")
+                    else:
+                        failed_count += 1
+                        retry_users.append(user)
+                        print(f"[CRON] Failed: {user.username}")
+                        
+                except Exception as e:
+                    failed_count += 1
+                    retry_users.append(user)
+                    print(f"[CRON] Error for {user.username}: {e}")
+            
+            # 최종 실패 수는 1차 시도에서 실패한 사용자 수
+            final_failed = len(retry_users)
+            
+            print(f"[CRON] Final results - Success: {sent_count}, Failed: {final_failed}")
+            
+            return Response({
+                'message': 'Scheduled task executed successfully',
+                'users_notified': sent_count,
+                'ios_users': ios_count,
+                'web_users': web_count,
+                'failed_users': final_failed,
+                'total_users': users_to_notify.count()
+            }, status=status.HTTP_200_OK)
+            
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
