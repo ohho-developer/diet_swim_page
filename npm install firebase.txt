@@ -1,0 +1,23 @@
+npm install firebase
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDRif0AxGNYsiDPJcTPpOf5sFypSX8Uhn4",
+  authDomain: "blooming-swim.firebaseapp.com",
+  projectId: "blooming-swim",
+  storageBucket: "blooming-swim.firebasestorage.app",
+  messagingSenderId: "81211203206",
+  appId: "1:81211203206:web:ad6359c088db43d5f57b07",
+  measurementId: "G-FJ85C6LFQW"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
