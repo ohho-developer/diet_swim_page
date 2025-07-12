@@ -52,6 +52,28 @@
         const messaging = getMessaging(app);
         const analytics = getAnalytics(app);
         
+        // Console 로그를 화면에도 표시하도록 오버라이드
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            if (consoleLogsEnabled) {
+                showConsoleLog(args.join(' '), 'log');
+            }
+        };
+        
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            showConsoleLog(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            showConsoleLog(args.join(' '), 'warn');
+        };
+        
         // 전역 변수로 설정하여 다른 페이지에서도 사용할 수 있도록 함
         window.messaging = messaging;
         
@@ -121,6 +143,48 @@
         
 
         
+        // Console 로그를 화면에 표시하는 함수
+        function showConsoleLog(message, type = 'log') {
+            const logDiv = document.createElement('div');
+            logDiv.style.cssText = `
+                position: fixed;
+                top: 50px;
+                left: 10px;
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+                font-size: 11px;
+                z-index: 10002;
+                max-width: 350px;
+                word-wrap: break-word;
+                font-family: monospace;
+                border-left: 3px solid #007bff;
+            `;
+            
+            if (type === 'error') {
+                logDiv.style.borderLeftColor = '#dc3545';
+                logDiv.style.background = 'rgba(220,53,69,0.8)';
+            } else if (type === 'warn') {
+                logDiv.style.borderLeftColor = '#ffc107';
+                logDiv.style.background = 'rgba(255,193,7,0.8)';
+                logDiv.style.color = '#000';
+            } else if (type === 'success') {
+                logDiv.style.borderLeftColor = '#28a745';
+                logDiv.style.background = 'rgba(40,167,69,0.8)';
+            }
+            
+            logDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.body.appendChild(logDiv);
+            
+            // 8초 후 제거
+            setTimeout(() => {
+                if (logDiv.parentNode) {
+                    logDiv.remove();
+                }
+            }, 8000);
+        }
+
         // 디버깅 정보를 화면에 표시하는 함수
         function showDebugInfo(info, type = 'debug') {
             const debugDiv = document.createElement('div');
@@ -779,7 +843,7 @@
         
         // 페이지 로드 시 iOS PWA 알림 권한 확인 (개선된 버전)
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('[페이지 로드] 알림 권한 확인 시작');
+            showDebugInfo('📱 페이지 로드됨', 'debug');
             
             // 즉시 알림 권한 확인
             checkIOSPWANotification();
@@ -789,6 +853,31 @@
             
             // FCM 토큰 등록 상태 확인 (디버깅용)
             checkFCMTokenStatus();
+            
+            // iOS에서 디버깅 패널 표시 (3초 후)
+            setTimeout(() => {
+                createDebugPanel();
+            }, 3000);
+            
+            // 화면을 3번 연속 터치하면 디버깅 패널 표시
+            let touchCount = 0;
+            let touchTimer = null;
+            
+            document.addEventListener('touchstart', function() {
+                touchCount++;
+                
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                }
+                
+                touchTimer = setTimeout(() => {
+                    if (touchCount >= 3) {
+                        showDebugInfo('🔧 디버깅 패널 열기', 'debug');
+                        createDebugPanel();
+                    }
+                    touchCount = 0;
+                }, 1000);
+            });
             
             // 사용자 상호작용 시 알림 권한 요청 (iOS Safari에서 더 효과적)
             let userInteracted = false;
@@ -1203,6 +1292,36 @@
             .catch(error => {
                 showDebugInfo(`❌ 서버 연결 실패: ${error.message}`, 'error');
             });
+        };
+        
+        // 디버깅 패널 생성 함수
+        function createDebugPanel() {
+            const debugHTML = `
+                <div id="debugPanel" style="position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 10px; font-size: 12px; z-index: 10000; max-width: 250px;">
+                    <h4 style="margin: 0 0 10px 0; color: #ff6b6b;">🔧 디버깅 패널</h4>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <button onclick="debugFCMProcess()" style="background: #4ecdc4; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">상태 확인</button>
+                        <button onclick="forceFCMRegistration()" style="background: #96ceb4; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">강제 등록</button>
+                        <button onclick="testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">서버 테스트</button>
+                        <button onclick="resetIOSNotificationPermission()" style="background: #ffa726; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">권한 재설정</button>
+                        <button onclick="toggleConsoleLogs()" id="consoleToggleBtn" style="background: #6f42c1; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">콘솔 로그 켜기</button>
+                        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background: #ff6b6b; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">닫기</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', debugHTML);
+        }
+        
+        // 콘솔 로그 토글 함수
+        let consoleLogsEnabled = false;
+        window.toggleConsoleLogs = function() {
+            consoleLogsEnabled = !consoleLogsEnabled;
+            const btn = document.getElementById('consoleToggleBtn');
+            if (btn) {
+                btn.textContent = consoleLogsEnabled ? '콘솔 로그 끄기' : '콘솔 로그 켜기';
+                btn.style.background = consoleLogsEnabled ? '#dc3545' : '#6f42c1';
+            }
+            showDebugInfo(`콘솔 로그 ${consoleLogsEnabled ? '활성화' : '비활성화'}됨`, consoleLogsEnabled ? 'success' : 'debug');
         };
         
         // iOS Safari 권한 재설정 함수
