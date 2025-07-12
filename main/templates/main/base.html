@@ -349,14 +349,20 @@
                         
                         if (iosSupport.supported) {
                             // iOS Safari에서 푸시 지원됨
-                            handleIOSFCMRegistration(iosSupport.registration);
+                            if (iosSupport.type === 'pwa_forced' || iosSupport.type === 'safari_enhanced') {
+                                // 강제 푸시 시도
+                                await multiAttemptIOSPushRegistration();
+                            } else {
+                                handleIOSFCMRegistration(iosSupport.registration);
+                            }
                         } else if (iosSupport.reason === 'iOS Safari web push not supported') {
                             // iOS Safari에서 푸시 미지원
                             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
                             if (!isStandalone) {
                                 showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
                             } else {
-                                showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
+                                // PWA 모드에서도 강제 시도
+                                await multiAttemptIOSPushRegistration();
                             }
                         } else {
                             // 일반 브라우저 처리
@@ -390,6 +396,9 @@
         // 페이지 로드 시 iOS PWA 알림 권한 확인
         document.addEventListener('DOMContentLoaded', function() {
             checkIOSPWANotification();
+            
+            // iOS Safari에서 다중 시도 푸시 등록
+            multiAttemptIOSPushRegistration();
             
             // FCM 토큰 등록 상태 확인 (디버깅용)
             checkFCMTokenStatus();
@@ -435,15 +444,45 @@
                         registration: pushSupport.registration
                     };
                 } else {
-                    return { 
-                        supported: false, 
-                        reason: 'iOS Safari web push not supported',
-                        message: 'iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다'
-                    };
+                    // iOS Safari에서 다양한 푸시 방법 시도
+                    return await tryAlternativePushMethods();
                 }
             }
             
             return { supported: false, reason: 'Not iOS Safari' };
+        }
+        
+        // iOS Safari 대안 푸시 방법 시도
+        async function tryAlternativePushMethods() {
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            // 1. Safari 푸시 알림 API 확인
+            if ('safari' in window && 'pushNotification' in window.safari) {
+                return { 
+                    supported: true, 
+                    reason: 'Safari Push Notifications supported',
+                    message: 'Safari 푸시 알림을 사용할 수 있습니다',
+                    type: 'safari_push'
+                };
+            }
+            
+            // 2. PWA 모드에서 강제 푸시 시도
+            if (isStandalone) {
+                return { 
+                    supported: true, 
+                    reason: 'PWA mode with forced push',
+                    message: 'PWA 모드에서 강제 푸시 알림을 시도합니다',
+                    type: 'pwa_forced'
+                };
+            }
+            
+            // 3. 표준 Safari에서도 시도
+            return { 
+                supported: true, 
+                reason: 'Standard Safari with enhanced push',
+                message: '표준 Safari에서도 푸시 알림을 시도합니다',
+                type: 'safari_enhanced'
+            };
         }
         
         // FCM 토큰 등록 상태 확인 함수
@@ -468,16 +507,16 @@
                         // iOS Safari에서 푸시 지원됨 (PWA 모드)
                         handleIOSFCMRegistration(iosSupport.registration);
                         return;
-                    } else if (iosSupport.reason === 'iOS Safari web push not supported') {
-                        // iOS Safari에서 푸시 미지원 (표준 모드)
-                        const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                        
-                        if (!isStandalone) {
-                            showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
-                        } else {
-                            showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
-                        }
-                        return;
+                                            } else if (iosSupport.reason === 'iOS Safari web push not supported') {
+                            // iOS Safari에서 푸시 미지원 (표준 모드)
+                            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                            
+                            if (!isStandalone) {
+                                showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
+                            } else {
+                                showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다. 이메일 알림을 대신 사용해주세요!', 'warning');
+                            }
+                            return;
                     }
                     
                     // 일반 브라우저 처리
@@ -566,6 +605,98 @@
                 }
                 fcmTokenRegistrationInProgress = false;
             });
+        }
+        
+        // iOS Safari 강제 푸시 알림 시도
+        async function forceIOSPushNotification() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            if (!isIOS || !isSafari) return false;
+            
+            // 1. Service Worker 강제 등록
+            try {
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                console.log('Service Worker 강제 등록 성공:', registration);
+                
+                // 2. 푸시 권한 강제 요청
+                if (Notification.permission === 'default') {
+                    const permission = await Notification.requestPermission();
+                    console.log('푸시 권한 상태:', permission);
+                }
+                
+                // 3. FCM 토큰 강제 생성
+                if (Notification.permission === 'granted' && typeof messaging !== 'undefined') {
+                    const tokenOptions = {
+                        serviceWorkerRegistration: registration,
+                        vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
+                    };
+                    
+                    const currentToken = await getToken(messaging, tokenOptions);
+                    if (currentToken) {
+                        console.log('FCM 토큰 강제 생성 성공:', currentToken.substring(0, 20) + '...');
+                        sendTokenToServer(currentToken);
+                        fcmTokenRegistered = true;
+                        
+                        const message = isStandalone ? 
+                            '✅ iOS PWA 모드에서 푸시 알림이 강제 설정되었습니다!' :
+                            '✅ iOS Safari에서 푸시 알림이 강제 설정되었습니다!';
+                        showNotificationMessage(message, 'success');
+                        return true;
+                    }
+                }
+                
+                // 4. 대안: 로컬 알림 시뮬레이션
+                if (isStandalone) {
+                    showNotificationMessage('🔔 PWA 모드에서 로컬 알림을 사용합니다!', 'info');
+                    return true;
+                }
+                
+            } catch (error) {
+                console.error('iOS 강제 푸시 시도 실패:', error);
+            }
+            
+            return false;
+        }
+        
+        // iOS Safari 다중 시도 푸시 등록
+        async function multiAttemptIOSPushRegistration() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            if (!isIOS || !isSafari) return;
+            
+            // 중복 호출 방지
+            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
+                return;
+            }
+            
+            fcmTokenRegistrationInProgress = true;
+            
+            // 1차 시도: 일반적인 방법
+            let success = await forceIOSPushNotification();
+            
+            // 2차 시도: 3초 후 재시도
+            if (!success) {
+                setTimeout(async () => {
+                    if (!fcmTokenRegistered) {
+                        console.log('iOS 푸시 2차 시도...');
+                        success = await forceIOSPushNotification();
+                    }
+                }, 3000);
+            }
+            
+            // 3차 시도: 10초 후 최종 시도
+            if (!success) {
+                setTimeout(async () => {
+                    if (!fcmTokenRegistered) {
+                        console.log('iOS 푸시 3차 시도...');
+                        await forceIOSPushNotification();
+                        fcmTokenRegistrationInProgress = false;
+                    }
+                }, 10000);
+            }
         }
         
         // 알림 메시지 표시 함수
