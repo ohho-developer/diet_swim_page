@@ -34,16 +34,27 @@ class FCMTokenRegisterView(APIView):
             return 'web'
 
     def post(self, request):
+        print(f"[DEBUG] FCM Token Register Request from user: {request.user.username}")
+        print(f"[DEBUG] Request data: {request.data}")
+        print(f"[DEBUG] User agent: {request.META.get('HTTP_USER_AGENT', '')}")
+        
         registration_id = request.data.get('token')
         device_name = request.data.get('name', None) # 선택 사항
 
         if not registration_id:
+            print("[DEBUG] No registration token provided")
             return Response({'error': 'FCM registration token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        print(f"[DEBUG] Registration token: {registration_id[:50]}...")
+        print(f"[DEBUG] Device name: {device_name}")
 
         try:
             # User agent와 플랫폼 정보 추출
             user_agent = request.META.get('HTTP_USER_AGENT', '')
             platform = self.detect_platform(user_agent)
+            
+            print(f"[DEBUG] Detected platform: {platform}")
+            print(f"[DEBUG] User agent: {user_agent}")
             
             # 이미 존재하는 토큰인지 확인하고 업데이트하거나 새로 생성
             fcm_device, created = FCMDevice.objects.update_or_create(
@@ -58,13 +69,18 @@ class FCMTokenRegisterView(APIView):
             )
             
             print(f"[DEBUG] Device registered: {platform} - {user_agent[:50]}...")
+            print(f"[DEBUG] Created: {created}, Device ID: {fcm_device.id}")
             
             return Response({
                 'message': 'FCM token registered successfully.', 
                 'created': created,
-                'platform': platform
+                'platform': platform,
+                'device_id': fcm_device.id
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            print(f"[DEBUG] Error registering FCM token: {e}")
+            import traceback
+            traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -192,6 +208,33 @@ class SendDailyMessageView(APIView):
             return Response({
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FCMDeviceStatusView(APIView):
+    """FCM 디바이스 상태 확인 API (디버깅용)"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            devices = FCMDevice.objects.filter(user=request.user)
+            
+            return Response({
+                'user': request.user.username,
+                'device_count': devices.count(),
+                'devices': [
+                    {
+                        'id': device.id,
+                        'name': device.name,
+                        'platform': device.platform,
+                        'active': device.active,
+                        'created_at': device.created_at.isoformat(),
+                        'registration_id': device.registration_id[:50] + '...' if device.registration_id else None
+                    }
+                    for device in devices
+                ]
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 User = get_user_model()

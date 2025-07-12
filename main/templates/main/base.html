@@ -124,21 +124,30 @@
 
         // 토큰을 Django 백엔드로 전송하는 함수 (fetch API 사용)
         function sendTokenToServer(token) {
-            // TODO: Django API 엔드포인트 URL로 변경하세요.
-            // 로그인된 사용자의 토큰을 보내야 하므로, 인증 헤더를 포함해야 합니다.
-            // CSRF 토큰 처리에 유의하세요 (Django REST Framework 사용 시).
-            fetch('/api/register-fcm-token/', { // Django API 엔드포인트
+            console.log('Sending token to server:', token);
+            
+            // 올바른 API 엔드포인트 URL 사용
+            fetch('/api/fcm/register/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'), // CSRF 토큰 가져오는 함수 필요
-                    'Authorization': `Token YOUR_AUTH_TOKEN` // 또는 Bearer Token 등
+                    'X-CSRFToken': getCookie('csrftoken'),
                 },
-                body: JSON.stringify({ token: token, name: 'Web Browser' })
+                body: JSON.stringify({ 
+                    token: token, 
+                    name: navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser' 
+                })
             })
-            .then(response => response.json())
-            .then(data => console.log('Token sent to server:', data))
-            .catch(error => console.error('Error sending token to server:', error));
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Token sent to server successfully:', data);
+            })
+            .catch(error => {
+                console.error('Error sending token to server:', error);
+            });
         }
 
         // CSRF 토큰을 가져오는 헬퍼 함수 (Django 사용 시 필요)
@@ -233,7 +242,66 @@
         // 페이지 로드 시 iOS PWA 알림 권한 확인
         document.addEventListener('DOMContentLoaded', function() {
             checkIOSPWANotification();
+            
+            // FCM 토큰 등록 상태 확인 (디버깅용)
+            checkFCMTokenStatus();
         });
+        
+        // FCM 토큰 등록 상태 확인 함수
+        function checkFCMTokenStatus() {
+            // 3초 후 토큰 등록 시도
+            setTimeout(() => {
+                if (Notification.permission === 'granted') {
+                    console.log('Notification permission granted, checking FCM token...');
+                    
+                    // Service Worker가 등록되어 있는지 확인
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(function(registration) {
+                            console.log('Service Worker ready:', registration);
+                            
+                            // FCM 토큰 요청
+                            getToken(messaging, { 
+                                serviceWorkerRegistration: registration, 
+                                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
+                            }).then((currentToken) => {
+                                if (currentToken) {
+                                    console.log('FCM Token obtained:', currentToken.substring(0, 50) + '...');
+                                    sendTokenToServer(currentToken);
+                                } else {
+                                    console.warn('No FCM token available');
+                                }
+                            }).catch((err) => {
+                                console.error('Error getting FCM token:', err);
+                            });
+                        });
+                    } else {
+                        console.log('Service Worker not supported');
+                    }
+                } else {
+                    console.log('Notification permission not granted:', Notification.permission);
+                }
+            }, 3000);
+        }
+        
+        // FCM 디바이스 상태 확인 함수 (디버깅용)
+        function checkFCMDeviceStatus() {
+            fetch('/api/fcm/status/', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('FCM Device Status:', data);
+            })
+            .catch(error => {
+                console.error('Error checking FCM device status:', error);
+            });
+        }
+        
+        // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
+        window.checkFCMDeviceStatus = checkFCMDeviceStatus;
     </script>
     
   
