@@ -157,6 +157,83 @@
             }
             return cookieValue;
         }
+        
+        // iOS Safari PWA 알림 권한 요청
+        function checkIOSPWANotification() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            console.log('iOS PWA Check:', { isIOS, isSafari, isStandalone, permission: Notification.permission });
+            
+            // iOS Safari에서 PWA로 실행 중이고 알림 권한이 없으면 요청
+            if (isIOS && isSafari && isStandalone && Notification.permission === 'default') {
+                // 5초 후 알림 권한 요청
+                setTimeout(() => {
+                    if (Notification.permission === 'default') {
+                        showNotificationPermissionModal();
+                    }
+                }, 5000);
+            }
+        }
+        
+        // 알림 권한 요청 모달 표시
+        function showNotificationPermissionModal() {
+            // 모달이 이미 있으면 표시
+            let modal = document.getElementById('notificationPermissionModal');
+            if (!modal) {
+                createNotificationModal();
+                modal = document.getElementById('notificationPermissionModal');
+            }
+            modal.style.display = 'block';
+        }
+        
+        // 알림 권한 요청 모달 생성
+        function createNotificationModal() {
+            const modalHTML = `
+                <div id="notificationPermissionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 9999;">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);">
+                        <h3 style="color: #198754; margin-bottom: 20px;">🌊 알림 설정</h3>
+                        <p style="margin-bottom: 20px; line-height: 1.6; color: #666;">Blooming Swim에서 중요한 알림을 받아보세요!</p>
+                        <p style="font-size: 14px; color: #888; margin-bottom: 25px;">건강한 습관을 잊지 않도록 도와드릴게요.</p>
+                        <div>
+                            <button id="requestNotificationBtn" style="background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin: 5px; cursor: pointer;">알림 허용하기</button>
+                            <button id="skipNotificationBtn" style="background: #6c757d; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin: 5px; cursor: pointer;">나중에 하기</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // 버튼 이벤트 리스너 추가
+            document.getElementById('requestNotificationBtn').addEventListener('click', function() {
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === 'granted') {
+                        console.log('iOS Safari PWA 알림 권한이 허용되었습니다!');
+                        // FCM 토큰 재등록 시도
+                        requestPermissionAndGetToken(messaging, navigator.serviceWorker.ready);
+                    }
+                    hideNotificationPermissionModal();
+                });
+            });
+            
+            document.getElementById('skipNotificationBtn').addEventListener('click', function() {
+                hideNotificationPermissionModal();
+            });
+        }
+        
+        // 모달 숨기기
+        function hideNotificationPermissionModal() {
+            const modal = document.getElementById('notificationPermissionModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // 페이지 로드 시 iOS PWA 알림 권한 확인
+        document.addEventListener('DOMContentLoaded', function() {
+            checkIOSPWANotification();
+        });
     </script>
     
   
