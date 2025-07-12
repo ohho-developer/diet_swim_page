@@ -34,7 +34,11 @@ class FCMDevice(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username}'s Device: {self.registration_id[:10]}..." # 또는 이름이 있으면 이름으로
+        username = getattr(self.user, 'username', None)
+        if not username:
+            username = str(self.user) if self.user else 'UnknownUser'
+        regid = self.registration_id[:10] + '...' if self.registration_id else 'NoToken'
+        return f"{username}'s Device: {regid}" # 또는 이름이 있으면 이름으로
     
     def clean(self):
         """모델 유효성 검증"""
