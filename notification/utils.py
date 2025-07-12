@@ -81,6 +81,7 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     """
     특정 사용자에게 FCM 푸시 알림을 보냅니다.
     백그라운드/앱이 꺼져있을 때도 받을 수 있는 실제 푸시 알림
+    중복 알림 방지를 위해 한 사용자당 하나의 디바이스에만 전송
     """
     # Firebase Admin SDK 초기화 확인 및 재시도
     try:
@@ -118,17 +119,40 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
         # FCM 디바이스가 없으면 실패로 처리
         return False
     
-
+    # 중복 알림 방지: 한 사용자당 하나의 디바이스만 사용
+    # 가장 최근에 업데이트된 디바이스 선택
+    latest_device = devices.order_by('-updated_at').first()
+    if not latest_device:
+        print(f"No valid device found for user: {user.username}")
+        return False
+    
+    print(f"[DEBUG] Using latest device for user: {user.username} - {latest_device.name} ({latest_device.platform})")
+    print(f"[DEBUG] Device token: {latest_device.registration_id[:20]}...")
+    
+    # 단일 디바이스로 처리 (중복 방지)
+    devices = [latest_device]
+    
+    # 중복 전송 방지를 위한 고유 식별자 추가
+    import hashlib
+    import time
+    message_id = hashlib.md5(f"{user.id}_{title}_{body}_{int(time.time())}".encode()).hexdigest()
+    print(f"[DEBUG] Message ID: {message_id}")
 
     registration_ids = [device.registration_id for device in devices]
     print(f"[DEBUG] Sending FCM to user: {user.username}, registration_ids: {registration_ids}")
     print(f"[DEBUG] Notification title: {title}, body: {body}")
+    print(f"[DEBUG] Device count: {len(devices)}")
+    print(f"[DEBUG] Device details: {[(d.name, d.platform, d.registration_id[:20] + '...') for d in devices]}")
 
     # data는 문자열-문자열 맵이어야 합니다.
     payload_data = data if data is not None else {}
 
     # 알림 클릭 시 이동할 URL을 추가합니다.
     payload_data['url'] = 'https://bloomingswim.designusplus.com'
+    
+    # 중복 방지를 위한 고유 식별자 추가
+    payload_data['message_id'] = message_id
+    payload_data['timestamp'] = str(int(time.time()))
 
     print(f"[DEBUG] Payload data: {payload_data}")
 
@@ -284,11 +308,12 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
             except Exception as e:
                 print(f"[DEBUG] Web push notification failed: {e}")
 
-        print(f"Total success: {success_count} out of {len(registration_ids)}")
+        print(f"[DEBUG] Total success: {success_count} out of {len(registration_ids)}")
+        print(f"[DEBUG] FCM notification completed for user: {user.username}")
         return success_count > 0
 
     except Exception as e:
-        print(f"Error sending FCM notification: {e}")
+        print(f"[ERROR] Error sending FCM notification to {user.username}: {e}")
         return False
 
 def send_fcm_notification_to_topic(topic, title, body, data=None):

@@ -133,8 +133,28 @@
         }
 
         // 포그라운드 메시지 수신 (실제 푸시알림으로 표시)
+        // 중복 메시지 방지를 위한 캐시
+        const processedMessages = new Set();
+        
         onMessage(messaging, (payload) => {
             console.log('Message received in foreground. ', payload);
+            
+            // 중복 메시지 체크
+            const messageId = payload.data?.message_id || payload.notification?.tag || 'default';
+            if (processedMessages.has(messageId)) {
+                console.log('Duplicate message detected, skipping:', messageId);
+                return;
+            }
+            
+            // 메시지 ID를 캐시에 추가 (최대 100개 유지)
+            processedMessages.add(messageId);
+            if (processedMessages.size > 100) {
+                const firstKey = processedMessages.values().next().value;
+                processedMessages.delete(firstKey);
+            }
+            
+            console.log('Processing message:', messageId);
+            
             let notificationTitle = '';
             let notificationOptions = {
                 body: '',

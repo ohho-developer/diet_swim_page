@@ -28,9 +28,28 @@ const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.
 // Service Worker에서는 standalone 정보를 직접 확인할 수 없으므로 제거
 const isStandalone = false;
 
+// 중복 메시지 방지를 위한 캐시
+const processedMessages = new Set();
+
 // 백그라운드 메시지 수신 처리 (iOS Safari 강화)
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
+    
+    // 중복 메시지 체크
+    const messageId = payload.data?.message_id || payload.notification?.tag || 'default';
+    if (processedMessages.has(messageId)) {
+        console.log('[firebase-messaging-sw.js] Duplicate message detected, skipping:', messageId);
+        return;
+    }
+    
+    // 메시지 ID를 캐시에 추가 (최대 100개 유지)
+    processedMessages.add(messageId);
+    if (processedMessages.size > 100) {
+        const firstKey = processedMessages.values().next().value;
+        processedMessages.delete(firstKey);
+    }
+    
+    console.log('[firebase-messaging-sw.js] Processing message:', messageId);
     
     // iOS Safari 특별 처리
     if (isIOS && isSafari) {
@@ -148,41 +167,6 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// iOS Safari 전용 푸시 이벤트 처리
-if (isIOS && isSafari) {
-    self.addEventListener('push', (event) => {
-        console.log('[iOS Safari] Push event received');
-        
-        if (event.data) {
-            try {
-                const payload = event.data.json();
-                console.log('[iOS Safari] Push payload:', payload);
-                
-                // iOS에서 알림 표시
-                const notificationTitle = payload.notification?.title || payload.data?.title || 'Blooming Swim';
-                const notificationBody = payload.notification?.body || payload.data?.body || '새로운 알림이 있습니다';
-                
-                const notificationOptions = {
-                    body: notificationBody,
-                    icon: '/static/img/hochul.png',
-                    badge: '/static/img/hochul.png',
-                    data: payload.data || {},
-                    tag: 'blooming-swim-notification',
-                    requireInteraction: true,
-                    actions: [
-                        {
-                            action: 'open',
-                            title: '열기'
-                        }
-                    ]
-                };
-
-                event.waitUntil(
-                    self.registration.showNotification(notificationTitle, notificationOptions)
-                );
-            } catch (error) {
-                console.error('[iOS Safari] Error processing push event:', error);
-            }
-        }
-    });
-} 
+// iOS Safari에서는 onBackgroundMessage만 사용하므로 push 이벤트 리스너 제거
+// 중복 알림 방지를 위해 push 이벤트는 처리하지 않음
+console.log('[Service Worker] iOS Safari detected - using onBackgroundMessage only'); 

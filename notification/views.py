@@ -444,12 +444,23 @@ class ScheduledNotificationTrigger(APIView):
     - 모든 활성 사용자에게 일일 알림 전송
     """
     def post(self, request):
+        # 상세한 cron job 호출 로깅
+        print(f"\n=== CRON JOB CALLED ===")
+        print(f"Timestamp: {datetime.now()}")
+        print(f"Request Method: {request.method}")
+        print(f"Request Path: {request.path}")
+        print(f"Remote Address: {request.META.get('REMOTE_ADDR', 'Unknown')}")
+        print(f"X-Forwarded-For: {request.META.get('HTTP_X_FORWARDED_FOR', 'None')}")
+        print(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
+        print(f"Request Headers: {dict(request.headers)}")
+        
         # Cron job 시크릿 키 확인
         cron_secret = request.headers.get('X-Secret-Key')
         print(f"Received cron secret: {cron_secret}")
         print(f"Expected cron secret: {settings.CRON_SECRET_KEY}")
         
         if not cron_secret or cron_secret != settings.CRON_SECRET_KEY:
+            print("[CRON] Invalid secret key - rejecting request")
             return Response({'error': 'Invalid cron secret'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
@@ -463,6 +474,7 @@ class ScheduledNotificationTrigger(APIView):
             retry_users = []
             
             print(f"[CRON] Starting notification to {users_to_notify.count()} users")
+            print(f"[CRON] User list: {[user.username for user in users_to_notify]}")
             
             # 1차 전송
             for user in users_to_notify:
