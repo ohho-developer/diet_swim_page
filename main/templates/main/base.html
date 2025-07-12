@@ -30,7 +30,7 @@
         
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+        import { getMessaging, getToken, onMessage, deleteToken } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
 
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
 
@@ -251,6 +251,11 @@
         function checkFCMTokenStatus() {
             // 3초 후 토큰 등록 시도
             setTimeout(() => {
+                console.log('=== FCM Token Registration Check ===');
+                console.log('Notification permission:', Notification.permission);
+                console.log('Service Worker support:', 'serviceWorker' in navigator);
+                console.log('Firebase messaging available:', typeof messaging !== 'undefined');
+                
                 if (Notification.permission === 'granted') {
                     console.log('Notification permission granted, checking FCM token...');
                     
@@ -258,6 +263,7 @@
                     if ('serviceWorker' in navigator) {
                         navigator.serviceWorker.ready.then(function(registration) {
                             console.log('Service Worker ready:', registration);
+                            console.log('Service Worker scope:', registration.scope);
                             
                             // FCM 토큰 요청
                             getToken(messaging, { 
@@ -265,22 +271,102 @@
                                 vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
                             }).then((currentToken) => {
                                 if (currentToken) {
-                                    console.log('FCM Token obtained:', currentToken.substring(0, 50) + '...');
+                                    console.log('✅ FCM Token obtained successfully');
+                                    console.log('Token preview:', currentToken.substring(0, 50) + '...');
+                                    console.log('Token length:', currentToken.length);
                                     sendTokenToServer(currentToken);
+                                    
+                                    // 성공 메시지 표시
+                                    showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
                                 } else {
-                                    console.warn('No FCM token available');
+                                    console.warn('❌ No FCM token available');
+                                    console.log('This might be due to:');
+                                    console.log('- Service Worker not properly registered');
+                                    console.log('- Firebase configuration issues');
+                                    console.log('- Browser compatibility issues');
+                                    
+                                    // 실패 메시지 표시
+                                    showNotificationMessage('❌ 푸시 알림 설정에 실패했습니다. 브라우저를 새로고침해주세요.', 'error');
                                 }
                             }).catch((err) => {
-                                console.error('Error getting FCM token:', err);
+                                console.error('❌ Error getting FCM token:', err);
+                                console.log('Error details:', {
+                                    name: err.name,
+                                    message: err.message,
+                                    stack: err.stack
+                                });
+                                
+                                // 오류 메시지 표시
+                                showNotificationMessage('❌ 푸시 알림 설정 중 오류가 발생했습니다.', 'error');
                             });
+                        }).catch((err) => {
+                            console.error('❌ Service Worker registration failed:', err);
+                            showNotificationMessage('❌ 서비스 워커 등록에 실패했습니다.', 'error');
                         });
                     } else {
-                        console.log('Service Worker not supported');
+                        console.log('❌ Service Worker not supported in this browser');
+                        showNotificationMessage('❌ 이 브라우저는 푸시 알림을 지원하지 않습니다.', 'error');
                     }
                 } else {
-                    console.log('Notification permission not granted:', Notification.permission);
+                    console.log('❌ Notification permission not granted:', Notification.permission);
+                    console.log('User needs to grant notification permission first');
+                    
+                    // 권한 요청 메시지 표시
+                    showNotificationMessage('🔔 알림 권한을 허용해주세요.', 'info');
                 }
             }, 3000);
+        }
+        
+        // 알림 메시지 표시 함수
+        function showNotificationMessage(message, type = 'info') {
+            // 기존 메시지 제거
+            const existingMessage = document.getElementById('fcm-status-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            // 새 메시지 생성
+            const messageDiv = document.createElement('div');
+            messageDiv.id = 'fcm-status-message';
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                max-width: 300px;
+                word-wrap: break-word;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            
+            // 타입에 따른 스타일 설정
+            switch(type) {
+                case 'success':
+                    messageDiv.style.backgroundColor = '#28a745';
+                    break;
+                case 'error':
+                    messageDiv.style.backgroundColor = '#dc3545';
+                    break;
+                case 'warning':
+                    messageDiv.style.backgroundColor = '#ffc107';
+                    messageDiv.style.color = '#212529';
+                    break;
+                default:
+                    messageDiv.style.backgroundColor = '#17a2b8';
+            }
+            
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+            
+            // 5초 후 자동 제거
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 5000);
         }
         
         // FCM 디바이스 상태 확인 함수 (디버깅용)
@@ -302,6 +388,64 @@
         
         // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
         window.checkFCMDeviceStatus = checkFCMDeviceStatus;
+        
+        // 수동 FCM 토큰 등록 테스트 함수
+        window.testFCMTokenRegistration = function() {
+            console.log('=== Manual FCM Token Registration Test ===');
+            
+            if (Notification.permission !== 'granted') {
+                console.log('❌ Notification permission not granted. Requesting permission...');
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === 'granted') {
+                        console.log('✅ Notification permission granted');
+                        checkFCMTokenStatus();
+                    } else {
+                        console.log('❌ Notification permission denied');
+                    }
+                });
+                return;
+            }
+            
+            if (!('serviceWorker' in navigator)) {
+                console.log('❌ Service Worker not supported');
+                return;
+            }
+            
+            if (typeof messaging === 'undefined') {
+                console.log('❌ Firebase messaging not available');
+                return;
+            }
+            
+            console.log('✅ All prerequisites met, attempting FCM token registration...');
+            checkFCMTokenStatus();
+        };
+        
+        // FCM 토큰 강제 재생성 함수
+        window.forceFCMTokenRefresh = function() {
+            console.log('=== Force FCM Token Refresh ===');
+            
+            if (typeof messaging === 'undefined') {
+                console.log('❌ Firebase messaging not available');
+                return;
+            }
+            
+            // 기존 토큰 삭제 후 새로 생성
+            deleteToken(messaging).then(() => {
+                console.log('✅ Old token deleted');
+                return getToken(messaging, { 
+                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
+                });
+            }).then((token) => {
+                if (token) {
+                    console.log('✅ New FCM token generated:', token.substring(0, 50) + '...');
+                    sendTokenToServer(token);
+                } else {
+                    console.log('❌ Failed to generate new token');
+                }
+            }).catch((err) => {
+                console.error('❌ Error refreshing FCM token:', err);
+            });
+        };
     </script>
     
   
