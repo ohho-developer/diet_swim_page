@@ -24,19 +24,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
     <!-- Pretendard Font -->
     <link rel="preconnect" href="https://fastly.jsdelivr.net">
-    <link href="https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff" rel="stylesheet">
     
     <script type="module">
-        
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getMessaging, getToken, onMessage, deleteToken } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
-
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
 
-
         // Your web app's Firebase configuration
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
             apiKey: "AIzaSyDRif0AxGNYsiDPJcTPpOf5sFypSX8Uhn4",
             authDomain: "blooming-swim.firebaseapp.com",
@@ -52,175 +47,14 @@
         const messaging = getMessaging(app);
         const analytics = getAnalytics(app);
         
-        // Console 로그를 화면에도 표시하도록 오버라이드
-        const originalConsoleLog = console.log;
-        const originalConsoleError = console.error;
-        const originalConsoleWarn = console.warn;
-        
-        console.log = function(...args) {
-            originalConsoleLog.apply(console, args);
-            if (consoleLogsEnabled) {
-                showConsoleLog(args.join(' '), 'log');
-            }
-        };
-        
-        console.error = function(...args) {
-            originalConsoleError.apply(console, args);
-            showConsoleLog(args.join(' '), 'error');
-        };
-        
-        console.warn = function(...args) {
-            originalConsoleWarn.apply(console, args);
-            showConsoleLog(args.join(' '), 'warn');
-        };
-        
         // 전역 변수로 설정하여 다른 페이지에서도 사용할 수 있도록 함
         window.messaging = messaging;
         
         // 중복 호출 방지를 위한 플래그
         let fcmTokenRegistrationInProgress = false;
         let fcmTokenRegistered = false;
-        
-        // 전역 함수들을 먼저 정의 (window 오류 방지)
-        window.forceTestToken = async function() {
-            try {
-                // 실제 FCM 토큰 생성 시도
-                if (typeof messaging === 'undefined') {
-                    alert('❌ Firebase Messaging이 초기화되지 않았습니다.');
-                    return;
-                }
-                
-                // Service Worker 등록
-                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                
-                // 실제 FCM 토큰 생성
-                const currentToken = await getToken(messaging, {
-                    serviceWorkerRegistration: registration,
-                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
-                });
-                
-                if (currentToken) {
-                    console.log('FCM 토큰 생성 성공:', currentToken.substring(0, 20) + '...');
-                    
-                    const deviceInfo = {
-                        token: currentToken,
-                        name: 'iOS Safari FCM',
-                        platform: 'ios',
-                        user_agent: navigator.userAgent,
-                        device_type: 'mobile',
-                        browser: 'Safari',
-                        app_version: 'PWA'
-                    };
-                    
-                    console.log('Sending FCM device info:', deviceInfo);
-                    
-                    const response = await fetch('/api/fcm/register/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify(deviceInfo)
-                    });
-                    
-                    const data = await response.json();
-                    console.log('Success:', data);
-                    alert('✅ FCM 토큰이 성공적으로 등록되었습니다!\n\n응답: ' + JSON.stringify(data, null, 2));
-                    const debugElement = document.getElementById('debugFCMStatus');
-                    if (debugElement) {
-                        debugElement.textContent = '✅';
-                    }
-                    fcmTokenRegistered = true;
-                } else {
-                    alert('❌ FCM 토큰 생성에 실패했습니다.');
-                }
-            } catch (error) {
-                console.error('FCM 토큰 등록 실패:', error);
-                alert('❌ FCM 토큰 등록 실패: ' + error.message);
-            }
-        };
-        
 
-        
-        // Console 로그를 화면에 표시하는 함수
-        function showConsoleLog(message, type = 'log') {
-            const logDiv = document.createElement('div');
-            logDiv.style.cssText = `
-                position: fixed;
-                top: 50px;
-                left: 10px;
-                background: rgba(0,0,0,0.8);
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-size: 11px;
-                z-index: 10002;
-                max-width: 350px;
-                word-wrap: break-word;
-                font-family: monospace;
-                border-left: 3px solid #007bff;
-            `;
-            
-            if (type === 'error') {
-                logDiv.style.borderLeftColor = '#dc3545';
-                logDiv.style.background = 'rgba(220,53,69,0.8)';
-            } else if (type === 'warn') {
-                logDiv.style.borderLeftColor = '#ffc107';
-                logDiv.style.background = 'rgba(255,193,7,0.8)';
-                logDiv.style.color = '#000';
-            } else if (type === 'success') {
-                logDiv.style.borderLeftColor = '#28a745';
-                logDiv.style.background = 'rgba(40,167,69,0.8)';
-            }
-            
-            logDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-            document.body.appendChild(logDiv);
-            
-            // 8초 후 제거
-            setTimeout(() => {
-                if (logDiv.parentNode) {
-                    logDiv.remove();
-                }
-            }, 8000);
-        }
-
-        // 디버깅 정보를 화면에 표시하는 함수
-        function showDebugInfo(info, type = 'debug') {
-            const debugDiv = document.createElement('div');
-            debugDiv.style.cssText = `
-                position: fixed;
-                top: 10px;
-                left: 10px;
-                background: rgba(0,0,0,0.9);
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-size: 12px;
-                z-index: 10001;
-                max-width: 300px;
-                word-wrap: break-word;
-                font-family: monospace;
-            `;
-            
-            if (type === 'error') {
-                debugDiv.style.background = 'rgba(220,53,69,0.9)';
-            } else if (type === 'success') {
-                debugDiv.style.background = 'rgba(40,167,69,0.9)';
-            }
-            
-            debugDiv.textContent = `[${new Date().toLocaleTimeString()}] ${info}`;
-            document.body.appendChild(debugDiv);
-            
-            // 10초 후 제거
-            setTimeout(() => {
-                if (debugDiv.parentNode) {
-                    debugDiv.remove();
-                }
-            }, 10000);
-        }
-
-        // 알림 메시지 표시 함수 (전역 함수들에서 사용)
+        // 알림 메시지 표시 함수
         function showNotificationMessage(message, type = 'info') {
             // 기존 메시지 제거
             const existingMessage = document.getElementById('fcm-status-message');
@@ -273,41 +107,19 @@
         }
 
         // 서비스 워커 등록
-        // service-worker.js 파일이 웹 서버 루트에 있어야 합니다.
-        // 또는 scope 옵션으로 경로를 지정할 수 있습니다.
         if ('serviceWorker' in navigator) {
-            // iOS Safari에서 Service Worker 등록 시 발생할 수 있는 오류 방지
-            try {
-                navigator.serviceWorker.register('/firebase-messaging-sw.js')
-                    .then((registration) => {
-                        showDebugInfo('✅ Service Worker 등록 성공', 'success');
-                        console.log('Service Worker registered with scope:', registration.scope);
-                        // 푸시 알림 권한 요청 및 토큰 가져오기 (중복 방지)
-                        if (!fcmTokenRegistered) {
-                            requestPermissionAndGetToken(messaging, registration);
-                        }
-                    })
-                    .catch((error) => {
-                        showDebugInfo(`❌ Service Worker 등록 실패: ${error.message}`, 'error');
-                        console.error('Service Worker registration failed:', error);
-                        
-                        // iOS Safari에서 Service Worker 실패 시 대안 시도
-                        if (error.message.includes('window') || error.message.includes('ReferenceError')) {
-                            showDebugInfo('💡 iOS Safari 제한으로 인한 실패', 'debug');
-                            showDebugInfo('💡 PWA 모드에서 시도하거나 iOS 대안 등록을 사용하세요', 'debug');
-                        }
-                    });
-            } catch (e) {
-                showDebugInfo(`❌ Service Worker 등록 중 예외 발생: ${e.message}`, 'error');
-                console.error('Service Worker registration exception:', e);
-            }
-        } else {
-            showDebugInfo('❌ Service Worker가 지원되지 않음', 'error');
+            navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                    // 푸시 알림 권한 요청 및 토큰 가져오기
+                    if (!fcmTokenRegistered) {
+                        requestPermissionAndGetToken(messaging, registration);
+                    }
+                })
+                .catch((error) => {
+                    console.error('Service Worker registration failed:', error);
+                });
         }
-
-
-        
-
 
         // 포그라운드 메시지 수신 (실제 푸시알림으로 표시)
         onMessage(messaging, (payload) => {
@@ -315,9 +127,10 @@
             let notificationTitle = '';
             let notificationOptions = {
                 body: '',
-                icon: '/static/img/hochul.png', // 실제 존재하는 아이콘 경로
+                icon: '/static/img/hochul.png',
                 data: payload.data || {},
             };
+            
             if (payload.notification) {
                 notificationTitle = payload.notification.title;
                 notificationOptions.body = payload.notification.body;
@@ -325,6 +138,7 @@
                 notificationTitle = payload.data.title || '';
                 notificationOptions.body = payload.data.body || '';
             }
+            
             // 실제 푸시알림으로 띄우기
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 try {
@@ -335,83 +149,87 @@
                         window.open(targetUrl, '_blank');
                     };
                 } catch (error) {
-                    showDebugInfo(`❌ 알림 생성 실패: ${error.message}`, 'error');
+                    console.error('알림 생성 실패:', error);
                 }
             }
         });
 
         // 푸시 알림 권한 요청 및 토큰 가져오기 함수
         function requestPermissionAndGetToken(messaging, serviceWorkerRegistration) {
-            showDebugInfo('🔍 권한 요청 함수 시작', 'debug');
-            
             // Notification API 존재 확인
             if (typeof Notification === 'undefined') {
-                showDebugInfo('❌ Notification API가 정의되지 않음', 'error');
-                fcmTokenRegistrationInProgress = false;
                 return;
             }
             
             // 중복 호출 방지
             if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
-                showDebugInfo('❌ 중복 호출 방지됨', 'error');
                 return;
             }
             
             fcmTokenRegistrationInProgress = true;
             
-            showDebugInfo('🔔 알림 권한 요청 중...', 'debug');
-            
             try {
                 Notification.requestPermission().then((permission) => {
-                    showDebugInfo(`🔔 권한 결과: ${permission}`, permission === 'granted' ? 'success' : 'error');
-                    
                     if (permission === 'granted') {
-                        showDebugInfo('🔍 FCM 토큰 요청 시작', 'debug');
-                        getToken(messaging, { serviceWorkerRegistration: serviceWorkerRegistration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' }).then((currentToken) => {
-                            if (currentToken) {
-                                showDebugInfo(`✅ FCM 토큰 받음: ${currentToken.substring(0, 20)}...`, 'success');
-                                sendTokenToServer(currentToken);
-                                fcmTokenRegistered = true;
-                            } else {
-                                showDebugInfo('❌ FCM 토큰이 null임', 'error');
+                        // iOS Safari 특별 처리
+                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+                        
+                        if (isIOS && isSafari) {
+                            // iOS Safari에서는 Service Worker 없이 시도
+                            getToken(messaging, { 
+                                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
+                            }).then((currentToken) => {
+                                if (currentToken) {
+                                    sendTokenToServer(currentToken);
+                                    fcmTokenRegistered = true;
+                                } else {
+                                    console.log('iOS Safari FCM 토큰이 null임');
+                                    fcmTokenRegistrationInProgress = false;
+                                }
+                            }).catch((err) => {
+                                console.error('iOS Safari FCM 토큰 요청 실패:', err);
                                 fcmTokenRegistrationInProgress = false;
-                            }
-                        }).catch((err) => {
-                            showDebugInfo(`❌ FCM 토큰 요청 실패: ${err.message}`, 'error');
-                            fcmTokenRegistrationInProgress = false;
-                        });
+                            });
+                        } else {
+                            // 일반 브라우저는 Service Worker와 함께
+                            getToken(messaging, { 
+                                serviceWorkerRegistration: serviceWorkerRegistration, 
+                                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
+                            }).then((currentToken) => {
+                                if (currentToken) {
+                                    sendTokenToServer(currentToken);
+                                    fcmTokenRegistered = true;
+                                } else {
+                                    console.log('FCM 토큰이 null임');
+                                    fcmTokenRegistrationInProgress = false;
+                                }
+                            }).catch((err) => {
+                                console.error('FCM 토큰 요청 실패:', err);
+                                fcmTokenRegistrationInProgress = false;
+                            });
+                        }
                     } else {
-                        showDebugInfo('❌ 권한 거부됨', 'error');
+                        console.log('권한 거부됨');
                         fcmTokenRegistrationInProgress = false;
                     }
                 }).catch((error) => {
-                    showDebugInfo(`❌ 권한 요청 실패: ${error.message}`, 'error');
+                    console.error('권한 요청 실패:', error);
                     fcmTokenRegistrationInProgress = false;
                 });
             } catch (error) {
-                showDebugInfo(`❌ Notification API 오류: ${error.message}`, 'error');
+                console.error('Notification API 오류:', error);
                 fcmTokenRegistrationInProgress = false;
             }
         }
 
-        // 토큰을 Django 백엔드로 전송하는 함수 (fetch API 사용)
-        function sendTokenToServer(token) {
-            showDebugInfo('🔍 sendTokenToServer 호출됨', 'debug');
-            
-            // 토큰 유효성 검증
-            if (!token || token.length < 100) {
-                showDebugInfo(`❌ 유효하지 않은 토큰: ${token ? token.length : 0}자`, 'error');
-                showNotificationMessage('❌ 유효하지 않은 푸시 토큰입니다.', 'error');
-                return;
-            }
-            
-            // iOS Safari 감지
+        // 디바이스 정보 생성 헬퍼 함수
+        function getDeviceInfo(token) {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
-            // 디바이스 정보 수집
-            const deviceInfo = {
+            return {
                 token: token,
                 name: isIOS ? (isStandalone ? 'iOS PWA' : 'iOS Safari') : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
                 platform: isIOS ? 'ios' : 'web',
@@ -427,219 +245,66 @@
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 language: navigator.language || navigator.userLanguage
             };
+        }
+
+        // 브라우저 정보 가져오기
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
+            if (ua.includes('Chrome')) return 'Chrome';
+            if (ua.includes('Firefox')) return 'Firefox';
+            if (ua.includes('Safari')) return 'Safari';
+            if (ua.includes('Edge')) return 'Edge';
+            return 'Unknown';
+        }
+
+        // 앱 버전 가져오기
+        function getAppVersion() {
+            return 'PWA 1.0';
+        }
+
+        // FCM 토큰을 서버로 전송 (fetch)
+        function sendTokenToServer(token) {
+            const deviceInfo = getDeviceInfo(token);
+            const isIOS = deviceInfo.platform === 'ios';
+            const isSafari = deviceInfo.browser === 'Safari';
+            const isStandalone = deviceInfo.name === 'iOS PWA';
             
-            showDebugInfo(`📱 디바이스 정보: ${deviceInfo.platform} ${deviceInfo.device_type}`, 'debug');
-            
-            // iOS Safari 전용 헤더 설정
             const headers = {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken'),
             };
             
-            // iOS Safari에서는 추가 헤더 설정
             if (isIOS && isSafari) {
                 headers['X-Requested-With'] = 'XMLHttpRequest';
                 headers['Accept'] = 'application/json, text/plain, */*';
             }
             
-            showDebugInfo('🌐 서버로 요청 전송 중...', 'debug');
-            // 올바른 API 엔드포인트 URL 사용
             fetch('/api/fcm/register/', {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(deviceInfo),
-                // iOS Safari를 위한 추가 옵션
                 credentials: 'same-origin',
                 mode: 'cors'
             })
             .then(response => {
-                showDebugInfo(`📡 서버 응답: ${response.status}`, response.ok ? 'success' : 'error');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.json();
             })
             .then(data => {
-                showDebugInfo(`✅ 서버 응답 성공: ${data.message || '등록 완료'}`, 'success');
-                
-                // 성공 메시지 표시
-                if (isIOS && isSafari) {
-                    const message = isStandalone ? 
-                        '✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!' :
-                        '✅ iOS Safari에서 푸시 알림이 설정되었습니다!';
-                    showNotificationMessage(message, 'success');
-                } else {
-                    showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
-                }
-                
-                // 디바이스 정보 로깅
-                console.log('Device registered:', {
-                    id: data.device_id,
-                    platform: data.platform,
-                    device_type: data.device_type,
-                    browser: data.browser,
-                    total_devices: data.total_devices,
-                    active_devices: data.active_devices
-                });
+                console.log('Device registered:', data);
             })
             .catch(error => {
-                showDebugInfo(`❌ 서버 요청 실패: ${error.message}`, 'error');
-                
-                // iOS Safari 특별 처리
-                if (isIOS && isSafari) {
-                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다. PWA 모드에서만 제한적으로 작동합니다.', 'warning');
-                } else {
-                    showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
-                }
-                
-                // iOS Safari에서 fetch 실패 시 XMLHttpRequest로 재시도
-                if (isIOS && isSafari) {
-                    sendTokenToServerWithXHR(token);
-                }
+                console.error('FCM 토큰 전송 실패:', error);
             });
         }
 
-        // 브라우저 정보 추출 함수
-        function getBrowserInfo() {
-            const userAgent = navigator.userAgent;
-            const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
-            const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-            const isFirefox = /Firefox/.test(userAgent);
-            const isEdge = /Edge/.test(userAgent);
-            const isOpera = /Opera/.test(userAgent);
-            
-            if (isChrome) return 'Chrome';
-            if (isSafari) return 'Safari';
-            if (isFirefox) return 'Firefox';
-            if (isEdge) return 'Edge';
-            if (isOpera) return 'Opera';
-            return 'Unknown';
-        }
-        
-        // 앱 버전 정보 추출 함수
-        function getAppVersion() {
-            // PWA의 경우 manifest에서 버전 정보를 가져올 수 있음
-            if ('serviceWorker' in navigator) {
-                return 'PWA';
-            }
-            return null;
-        }
-
-        // iOS Safari 전용 XMLHttpRequest 방식 (fetch 실패 시 대체)
-        function sendTokenToServerWithXHR(token) {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            const deviceInfo = {
-                token: token,
-                name: isIOS ? (isStandalone ? 'iOS PWA' : 'iOS Safari') : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
-                platform: isIOS ? 'ios' : 'web',
-                user_agent: navigator.userAgent,
-                device_type: isIOS ? 'mobile' : (navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'),
-                browser: getBrowserInfo(),
-                app_version: getAppVersion()
-            };
-            
-            showDebugInfo('📡 XHR로 서버에 토큰 전송 중...', 'debug');
-            
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/fcm/register/', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        try {
-                            const data = JSON.parse(xhr.responseText);
-                            showDebugInfo('✅ XHR FCM 등록 성공', 'success');
-                            
-                            if (isIOS && isSafari) {
-                                const message = isStandalone ? 
-                                    '✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!' :
-                                    '✅ iOS Safari에서 푸시 알림이 설정되었습니다!';
-                                showNotificationMessage(message, 'success');
-                            } else {
-                                showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
-                            }
-                        } catch (e) {
-                            showDebugInfo(`❌ XHR 응답 파싱 오류: ${e.message}`, 'error');
-                            showNotificationMessage('❌ 서버 응답을 처리할 수 없습니다.', 'error');
-                        }
-                    } else {
-                        showDebugInfo(`❌ XHR 오류 상태: ${xhr.status}`, 'error');
-                        if (isIOS && isSafari) {
-                            showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
-                        } else {
-                            showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
-                        }
-                    }
-                }
-            };
-            
-            xhr.onerror = function() {
-                showDebugInfo('❌ XHR 네트워크 오류', 'error');
-                if (isIOS && isSafari) {
-                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
-                } else {
-                    showNotificationMessage('❌ 네트워크 오류가 발생했습니다.', 'error');
-                }
-            };
-            
-            try {
-                xhr.send(JSON.stringify(deviceInfo));
-            } catch (e) {
-                showDebugInfo(`❌ XHR 전송 오류: ${e.message}`, 'error');
-                if (isIOS && isSafari) {
-                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
-                } else {
-                    showNotificationMessage('❌ 요청 전송에 실패했습니다.', 'error');
-                }
-            }
-        }
-        
-        // iOS Safari에서 Service Worker 없이 FCM 토큰 생성 시도
-        window.forceIOSFCMWithoutSW = function() {
-            showDebugInfo('🔧 iOS Safari Service Worker 없이 FCM 시도', 'debug');
-            
-            if (typeof messaging === 'undefined') {
-                showDebugInfo('❌ Firebase Messaging이 초기화되지 않음', 'error');
-                return;
-            }
-            
-            if (typeof Notification === 'undefined') {
-                showDebugInfo('❌ Notification API가 정의되지 않음', 'error');
-                return;
-            }
-            
-            // Service Worker 없이 vapidKey만으로 토큰 생성 시도
-            getToken(messaging, {
-                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
-            }).then((currentToken) => {
-                if (currentToken) {
-                    showDebugInfo(`✅ Service Worker 없이 FCM 토큰 생성 성공: ${currentToken.substring(0, 20)}...`, 'success');
-                    sendTokenToServerWithXHR(currentToken);
-                    fcmTokenRegistered = true;
-                } else {
-                    showDebugInfo('❌ Service Worker 없이 FCM 토큰 생성 실패', 'error');
-                }
-            }).catch((error) => {
-                showDebugInfo(`❌ Service Worker 없이 FCM 토큰 생성 오류: ${error.message}`, 'error');
-            });
-        };
-
-        // CSRF 토큰을 가져오는 헬퍼 함수 (Django 사용 시 필요)
+        // CSRF 토큰을 가져오는 헬퍼 함수
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 const cookies = document.cookie.split(';');
                 for (let i = 0; i < cookies.length; i++) {
                     const cookie = cookies[i].trim();
-                    // Does this cookie string begin with the name we want?
                     if (cookie.substring(0, name.length + 1) === (name + '=')) {
                         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                         break;
@@ -648,57 +313,41 @@
             }
             return cookieValue;
         }
-        
-        // iOS Safari PWA 알림 권한 요청 (개선된 버전)
-        async function checkIOSPWANotification() {
+
+        // iOS Safari PWA 알림 권한 요청
+        function checkIOSPWANotification() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
             if (isIOS && isSafari) {
-                console.log('[iOS Safari] 알림 권한 확인 중...');
-                console.log('[iOS Safari] PWA 모드:', isStandalone);
-                console.log('[iOS Safari] 현재 권한:', Notification.permission);
-                
-                // 이미 권한을 요청했는지 확인 (localStorage 사용)
+                // 이미 권한을 요청했는지 확인
                 const hasRequestedPermission = localStorage.getItem('notification_permission_requested');
                 
                 if (Notification.permission === 'default' && !hasRequestedPermission) {
-                    console.log('[iOS Safari] 알림 권한 요청 준비...');
-                    
                     // 사용자가 페이지를 충분히 둘러본 후 권한 요청 (5초)
                     setTimeout(() => {
                         if (Notification.permission === 'default' && !hasRequestedPermission) {
-                            console.log('[iOS Safari] 알림 권한 모달 표시');
                             showNotificationPermissionModal();
                             localStorage.setItem('notification_permission_requested', 'true');
                         }
                     }, 5000);
-                    
                 } else if (Notification.permission === 'granted' && !fcmTokenRegistered) {
-                    console.log('[iOS Safari] 권한이 있음, 토큰 등록 시도');
                     // 권한이 있고 토큰이 등록되지 않았으면 등록 시도
                     setTimeout(() => {
                         if (!fcmTokenRegistered) {
-                            multiAttemptIOSPushRegistration();
+                            requestPermissionAndGetToken(messaging, null);
                         }
                     }, 2000);
-                    
                 } else if (Notification.permission === 'denied') {
-                    console.log('[iOS Safari] 권한이 거부됨');
-                    // 권한이 거부된 경우 한 번만 안내
-                    const hasShownDeniedMessage = localStorage.getItem('notification_permission_denied_message');
-                    if (!hasShownDeniedMessage) {
-                        showNotificationMessage('🔔 설정에서 알림 권한을 허용해주세요!', 'warning');
-                        localStorage.setItem('notification_permission_denied_message', 'true');
-                    }
+                    // 권한이 거부된 경우 localStorage에만 기록
+                    localStorage.setItem('notification_permission_denied_message', 'true');
                 }
             }
         }
-        
+
         // 알림 권한 요청 모달 표시
         function showNotificationPermissionModal() {
-            // 모달이 이미 있으면 표시
             let modal = document.getElementById('notificationPermissionModal');
             if (!modal) {
                 createNotificationModal();
@@ -706,14 +355,13 @@
             }
             modal.style.display = 'block';
         }
-        
-        // 알림 권한 요청 모달 생성 (개선된 버전)
+
+        // 알림 권한 요청 모달 생성
         function createNotificationModal() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
-            // iOS Safari 상태에 따른 메시지 조정
             let iosMessage = '';
             if (isIOS && isSafari) {
                 if (isStandalone) {
@@ -754,26 +402,16 @@
             
             // 버튼 이벤트 리스너 추가
             document.getElementById('requestNotificationBtn').addEventListener('click', async function() {
-                console.log('[iOS Safari] 알림 권한 요청 버튼 클릭');
-                
                 try {
                     const permission = await Notification.requestPermission();
-                    console.log('[iOS Safari] 권한 요청 결과:', permission);
                     
                     if (permission === 'granted') {
-                        console.log('[iOS Safari] 권한 허용됨, 푸시 등록 시도');
-                        showNotificationMessage('✅ 알림 권한이 허용되었습니다!', 'success');
-                        
-                        // iOS Safari 특별 처리 - 단순화된 로직
+                        // iOS Safari 특별 처리
                         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
                         const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
                         const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
                         
-                        console.log('[iOS Safari] 디바이스 정보:', { isIOS, isSafari, isStandalone });
-                        
-                        // 1차 시도: Firebase Messaging 사용
                         if (typeof messaging !== 'undefined') {
-                            console.log('[iOS Safari] Firebase Messaging 사용 시도');
                             try {
                                 const tokenOptions = {
                                     vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
@@ -784,85 +422,31 @@
                                     try {
                                         const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
                                         tokenOptions.serviceWorkerRegistration = registration;
-                                        console.log('[iOS Safari] Service Worker 등록 성공');
                                     } catch (swError) {
-                                        console.log('[iOS Safari] Service Worker 등록 실패, vapidKey만 사용');
+                                        console.log('Service Worker 등록 실패, vapidKey만 사용');
                                     }
                                 }
                                 
                                 const currentToken = await getToken(messaging, tokenOptions);
                                 if (currentToken) {
-                                    console.log('[iOS Safari] FCM 토큰 생성 성공:', currentToken.substring(0, 20) + '...');
                                     sendTokenToServer(currentToken);
                                     fcmTokenRegistered = true;
-                                    
-                                    const message = isStandalone ? 
-                                        '✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!' :
-                                        '✅ iOS Safari에서 푸시 알림이 설정되었습니다!';
-                                    showNotificationMessage(message, 'success');
-                                    return;
                                 }
                             } catch (fcmError) {
-                                console.error('[iOS Safari] Firebase Messaging 오류:', fcmError);
+                                console.error('Firebase Messaging 오류:', fcmError);
                             }
                         }
-                        
-                        // 2차 시도: 강제 푸시 등록
-                        console.log('[iOS Safari] 강제 푸시 등록 시도');
-                        const forceResult = await forceIOSPushNotification();
-                        if (forceResult) {
-                            console.log('[iOS Safari] 강제 푸시 등록 성공');
-                            return;
-                        }
-                        
-                        // 3차 시도: 다중 시도 푸시 등록
-                        console.log('[iOS Safari] 다중 시도 푸시 등록');
-                        await multiAttemptIOSPushRegistration();
-                        
-                        // 4차 시도: 실제 FCM 토큰 생성 재시도
-                        if (!fcmTokenRegistered) {
-                            console.log('[iOS Safari] 실제 FCM 토큰 생성 재시도');
-                            try {
-                                // Service Worker 재등록 시도
-                                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                                
-                                // 실제 FCM 토큰 생성
-                                const currentToken = await getToken(messaging, {
-                                    serviceWorkerRegistration: registration,
-                                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
-                                });
-                                
-                                if (currentToken) {
-                                    sendTokenToServer(currentToken);
-                                    fcmTokenRegistered = true;
-                                    showNotificationMessage('✅ FCM 토큰이 성공적으로 등록되었습니다!', 'success');
-                                } else {
-                                    showNotificationMessage('⚠️ FCM 토큰 생성에 실패했습니다. 브라우저를 새로고침해주세요.', 'warning');
-                                }
-                            } catch (error) {
-                                console.error('[iOS Safari] FCM 토큰 생성 실패:', error);
-                                showNotificationMessage('⚠️ iOS Safari에서는 푸시 알림이 제한적입니다. PWA 모드에서 시도해주세요.', 'warning');
-                            }
-                        }
-                        
                     } else if (permission === 'denied') {
-                        console.log('[iOS Safari] 권한 거부됨');
-                        showNotificationMessage('❌ 알림 권한이 거부되었습니다. 설정에서 허용해주세요.', 'error');
                         localStorage.setItem('notification_permission_denied_message', 'true');
-                    } else {
-                        console.log('[iOS Safari] 권한 요청 취소됨');
-                        showNotificationMessage('ℹ️ 알림 권한 요청이 취소되었습니다.', 'info');
                     }
                 } catch (error) {
-                    console.error('[iOS Safari] 권한 요청 중 오류:', error);
-                    showNotificationMessage('❌ 알림 권한 요청 중 오류가 발생했습니다.', 'error');
+                    console.error('권한 요청 중 오류:', error);
                 }
                 
                 hideNotificationPermissionModal();
             });
             
             document.getElementById('skipNotificationBtn').addEventListener('click', function() {
-                console.log('[iOS Safari] 알림 권한 요청 건너뜀');
                 hideNotificationPermissionModal();
             });
             
@@ -877,7 +461,7 @@
                 }
             }
         }
-        
+
         // PWA 설치 가이드 표시
         function showPWAGuide() {
             const guideHTML = `
@@ -902,7 +486,7 @@
             `;
             document.body.insertAdjacentHTML('beforeend', guideHTML);
         }
-        
+
         // 모달 숨기기
         function hideNotificationPermissionModal() {
             const modal = document.getElementById('notificationPermissionModal');
@@ -910,46 +494,13 @@
                 modal.style.display = 'none';
             }
         }
-        
-        // 페이지 로드 시 iOS PWA 알림 권한 확인 (개선된 버전)
+
+        // 페이지 로드 시 iOS PWA 알림 권한 확인
         document.addEventListener('DOMContentLoaded', function() {
-            showDebugInfo('📱 페이지 로드됨', 'debug');
-            
             // 즉시 알림 권한 확인
             checkIOSPWANotification();
             
-            // iOS Safari에서 다중 시도 푸시 등록
-            multiAttemptIOSPushRegistration();
-            
-            // FCM 토큰 등록 상태 확인 (디버깅용)
-            checkFCMTokenStatus();
-            
-            // iOS에서 디버깅 패널 표시 (3초 후)
-            setTimeout(() => {
-                createDebugPanel();
-            }, 3000);
-            
-            // 화면을 3번 연속 터치하면 디버깅 패널 표시
-            let touchCount = 0;
-            let touchTimer = null;
-            
-            document.addEventListener('touchstart', function() {
-                touchCount++;
-                
-                if (touchTimer) {
-                    clearTimeout(touchTimer);
-                }
-                
-                touchTimer = setTimeout(() => {
-                    if (touchCount >= 3) {
-                        showDebugInfo('🔧 디버깅 패널 열기', 'debug');
-                        createDebugPanel();
-                    }
-                    touchCount = 0;
-                }, 1000);
-            });
-            
-            // 사용자 상호작용 시 알림 권한 요청 (iOS Safari에서 더 효과적)
+            // 사용자 상호작용 시 알림 권한 요청
             let userInteracted = false;
             let interactionTimeout = null;
             
@@ -964,8 +515,6 @@
                         const hasRequestedPermission = localStorage.getItem('notification_permission_requested');
                         
                         if (isIOS && isSafari && Notification.permission === 'default' && !hasRequestedPermission) {
-                            console.log('[iOS Safari] 사용자 상호작용 후 알림 권한 요청');
-                            
                             // 상호작용 후 2초 대기 후 권한 요청
                             if (interactionTimeout) {
                                 clearTimeout(interactionTimeout);
@@ -979,7 +528,7 @@
                 }, { once: true });
             });
             
-            // 페이지 가시성 변경 감지 (탭 전환 시)
+            // 페이지 가시성 변경 감지
             document.addEventListener('visibilitychange', function() {
                 if (!document.hidden) {
                     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -987,7 +536,6 @@
                     const hasRequestedPermission = localStorage.getItem('notification_permission_requested');
                     
                     if (isIOS && isSafari && Notification.permission === 'default' && !hasRequestedPermission) {
-                        console.log('[iOS Safari] 페이지 가시성 변경 후 권한 확인');
                         setTimeout(() => {
                             if (Notification.permission === 'default' && !hasRequestedPermission) {
                                 showNotificationPermissionModal();
@@ -998,664 +546,20 @@
                 }
             });
         });
-        
-        // 웹 푸시 지원 확인 함수
-        async function checkWebPushSupport() {
-            // 1. Service Worker 지원 확인
-            if (!('serviceWorker' in navigator)) {
-                return { supported: false, reason: 'Service Worker not supported' };
-            }
-            
-            try {
-                // 2. Service Worker 등록
-                const registration = await navigator.serviceWorker.ready;
-                
-                // 3. Push Manager 지원 확인
-                if (!('pushManager' in registration)) {
-                    return { supported: false, reason: 'Push Manager not supported' };
-                }
-                
-                return { supported: true, registration };
-            } catch (error) {
-                return { supported: false, reason: 'Service Worker registration failed', error };
-            }
-        }
-        
-        // iOS Safari 푸시 지원 감지 함수
-        async function detectIOSPushSupport() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            if (isIOS && isSafari) {
-                // Service Worker와 Push Manager 확인
-                const pushSupport = await checkWebPushSupport();
-                
-                if (pushSupport.supported) {
-                    return { 
-                        supported: true, 
-                        mode: isStandalone ? 'PWA' : 'Safari',
-                        message: isStandalone ? 'PWA 모드에서 푸시 알림이 지원됩니다' : 'Safari에서는 푸시 알림이 제한적입니다',
-                        registration: pushSupport.registration
-                    };
-                } else {
-                    // iOS Safari에서 다양한 푸시 방법 시도
-                    return await tryAlternativePushMethods();
-                }
-            }
-            
-            return { supported: false, reason: 'Not iOS Safari' };
-        }
-        
-        // iOS Safari 대안 푸시 방법 시도
-        async function tryAlternativePushMethods() {
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            // 1. Safari 푸시 알림 API 확인
-            if ('safari' in window && 'pushNotification' in window.safari) {
-                return { 
-                    supported: true, 
-                    reason: 'Safari Push Notifications supported',
-                    message: 'Safari 푸시 알림을 사용할 수 있습니다',
-                    type: 'safari_push'
-                };
-            }
-            
-            // 2. PWA 모드에서 강제 푸시 시도
-            if (isStandalone) {
-                return { 
-                    supported: true, 
-                    reason: 'PWA mode with forced push',
-                    message: 'PWA 모드에서 강제 푸시 알림을 시도합니다',
-                    type: 'pwa_forced'
-                };
-            }
-            
-            // 3. 표준 Safari에서도 시도
-            return { 
-                supported: true, 
-                reason: 'Standard Safari with enhanced push',
-                message: '표준 Safari에서도 푸시 알림을 시도합니다',
-                type: 'safari_enhanced'
-            };
-        }
-        
-        // FCM 토큰 등록 상태 확인 함수
-        async function checkFCMTokenStatus() {
-            // 중복 호출 방지
-            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
-                return;
-            }
-            
-            // 3초 후 토큰 등록 시도
-            setTimeout(async () => {
-                // 다시 한번 중복 확인
-                if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
-                    return;
-                }
-                
-                if (Notification.permission === 'granted') {
-                    // iOS Safari 특별 처리
-                    const iosSupport = await detectIOSPushSupport();
-                    
-                    if (iosSupport.supported) {
-                        // iOS Safari에서 푸시 지원됨 (PWA 모드)
-                        handleIOSFCMRegistration(iosSupport.registration);
-                        return;
-                                            } else if (iosSupport.reason === 'iOS Safari web push not supported') {
-                            // iOS Safari에서 푸시 미지원 (표준 모드)
-                            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                            
-                            if (!isStandalone) {
-                                showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
-                            } else {
-                                showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다. 이메일 알림을 대신 사용해주세요!', 'warning');
-                            }
-                            return;
-                    }
-                    
-                    // 일반 브라우저 처리
-                    const pushSupport = await checkWebPushSupport();
-                    
-                    if (pushSupport.supported) {
-                        // 웹 푸시 지원됨
-                        getToken(messaging, { 
-                            serviceWorkerRegistration: pushSupport.registration, 
-                            vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
-                        }).then((currentToken) => {
-                            if (currentToken) {
-                                sendTokenToServer(currentToken);
-                                fcmTokenRegistered = true;
-                                
-                                // 성공 메시지 표시
-                                showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
-                            } else {
-                                // 실패 메시지 표시
-                                showNotificationMessage('❌ 푸시 알림 설정에 실패했습니다. 브라우저를 새로고침해주세요.', 'error');
-                            }
-                        }).catch((err) => {
-                            // 오류 메시지 표시
-                            showNotificationMessage('❌ 푸시 알림 설정 중 오류가 발생했습니다.', 'error');
-                        });
-                    } else {
-                        // 웹 푸시 미지원
-                        showNotificationMessage('❌ 이 브라우저는 푸시 알림을 지원하지 않습니다.', 'error');
-                    }
-                } else {
-                    // 권한 요청 메시지 표시
-                    showNotificationMessage('🔔 알림 권한을 허용해주세요.', 'info');
-                }
-            }, 3000);
-        }
-        
-        // iOS Safari 전용 FCM 등록 처리
-        function handleIOSFCMRegistration(registration = null) {
-            // 중복 호출 방지
-            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
-                return;
-            }
-            
-            fcmTokenRegistrationInProgress = true;
-            
-            // iOS Safari에서는 Firebase Messaging이 제한적일 수 있음
-            if (typeof messaging === 'undefined') {
-                fcmTokenRegistrationInProgress = false;
-                return;
-            }
-            
-            // Service Worker 등록이 있으면 사용, 없으면 vapidKey만 사용
-            const tokenOptions = registration ? 
-                { serviceWorkerRegistration: registration, vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' } :
-                { vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' };
-            
-            getToken(messaging, tokenOptions).then((currentToken) => {
-                if (currentToken) {
-                    sendTokenToServer(currentToken);
-                    fcmTokenRegistered = true;
-                    
-                    // 성공 메시지 표시
-                    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                    if (isStandalone) {
-                        showNotificationMessage('✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!', 'success');
-                    } else {
-                        showNotificationMessage('✅ iOS Safari에서 푸시 알림이 설정되었습니다!', 'success');
-                    }
-                } else {
-                    // iOS 제한사항 안내
-                    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                    if (!isStandalone) {
-                        showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
-                    } else {
-                        showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
-                    }
-                    fcmTokenRegistrationInProgress = false;
-                }
-            }).catch((err) => {
-                // iOS 제한사항 안내
-                const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                if (!isStandalone) {
-                    showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
-                } else {
-                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
-                }
-                fcmTokenRegistrationInProgress = false;
-            });
-        }
-        
-        // iOS Safari 강제 푸시 알림 시도
-        async function forceIOSPushNotification() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            if (!isIOS || !isSafari) return false;
-            
-            // 1. Service Worker 강제 등록
-            try {
-                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                console.log('Service Worker 강제 등록 성공:', registration);
-                
-                // 2. 푸시 권한 강제 요청
-                if (Notification.permission === 'default') {
-                    const permission = await Notification.requestPermission();
-                    console.log('푸시 권한 상태:', permission);
-                }
-                
-                // 3. FCM 토큰 강제 생성
-                if (Notification.permission === 'granted' && typeof messaging !== 'undefined') {
-                    const tokenOptions = {
-                        serviceWorkerRegistration: registration,
-                        vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
-                    };
-                    
-                    const currentToken = await getToken(messaging, tokenOptions);
-                    if (currentToken) {
-                        console.log('FCM 토큰 강제 생성 성공:', currentToken.substring(0, 20) + '...');
-                        sendTokenToServer(currentToken);
-                        fcmTokenRegistered = true;
-                        
-                        const message = isStandalone ? 
-                            '✅ iOS PWA 모드에서 푸시 알림이 강제 설정되었습니다!' :
-                            '✅ iOS Safari에서 푸시 알림이 강제 설정되었습니다!';
-                        showNotificationMessage(message, 'success');
-                        return true;
-                    }
-                }
-                
-                // 4. 대안: 로컬 알림 시뮬레이션
-                if (isStandalone) {
-                    showNotificationMessage('🔔 PWA 모드에서 로컬 알림을 사용합니다!', 'info');
-                    return true;
-                }
-                
-            } catch (error) {
-                console.error('iOS 강제 푸시 시도 실패:', error);
-            }
-            
-            return false;
-        }
-        
-        // iOS Safari 다중 시도 푸시 등록
-        async function multiAttemptIOSPushRegistration() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            
-            if (!isIOS || !isSafari) return;
-            
-            // 중복 호출 방지
-            if (fcmTokenRegistrationInProgress || fcmTokenRegistered) {
-                return;
-            }
-            
-            fcmTokenRegistrationInProgress = true;
-            
-            // 1차 시도: 일반적인 방법
-            let success = await forceIOSPushNotification();
-            
-            // 2차 시도: 3초 후 재시도
-            if (!success) {
-                setTimeout(async () => {
-                    if (!fcmTokenRegistered) {
-                        console.log('iOS 푸시 2차 시도...');
-                        success = await forceIOSPushNotification();
-                    }
-                }, 3000);
-            }
-            
-            // 3차 시도: 10초 후 최종 시도
-            if (!success) {
-                setTimeout(async () => {
-                    if (!fcmTokenRegistered) {
-                        console.log('iOS 푸시 3차 시도...');
-                        await forceIOSPushNotification();
-                        fcmTokenRegistrationInProgress = false;
-                    }
-                }, 10000);
-            }
-        }
-        
-
-        
-        // FCM 디바이스 상태 확인 함수 (디버깅용)
-        function checkFCMDeviceStatus() {
-            fetch('/api/fcm/status/', {
-                method: 'GET',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('FCM Device Status:', data);
-            })
-            .catch(error => {
-                console.error('Error checking FCM device status:', error);
-            });
-        }
-        
-        // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
-        window.checkFCMDeviceStatus = checkFCMDeviceStatus;
-        
-        // iOS 디버깅용 전역 함수들
-        window.debugFCMProcess = function() {
-            showDebugInfo('🔍 FCM 프로세스 디버깅 시작', 'debug');
-            showDebugInfo(`Notification API: ${typeof Notification !== 'undefined'}`, 'debug');
-            showDebugInfo(`현재 권한: ${typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}`, 'debug');
-            showDebugInfo(`FCM 등록됨: ${fcmTokenRegistered}`, 'debug');
-            showDebugInfo(`진행 중: ${fcmTokenRegistrationInProgress}`, 'debug');
-            showDebugInfo(`Firebase 초기화: ${typeof messaging !== 'undefined'}`, 'debug');
-        };
-        
-        window.forceFCMRegistration = function() {
-            showDebugInfo('🔧 강제 FCM 등록 시작', 'debug');
-            fcmTokenRegistered = false;
-            fcmTokenRegistrationInProgress = false;
-            
-            // Notification API 확인
-            if (typeof Notification === 'undefined') {
-                showDebugInfo('❌ Notification API가 정의되지 않음', 'error');
-                return;
-            }
-            
-            // Service Worker 지원 확인
-            if (!('serviceWorker' in navigator)) {
-                showDebugInfo('❌ Service Worker가 지원되지 않음', 'error');
-                return;
-            }
-            
-            if (typeof messaging !== 'undefined') {
-                showDebugInfo('🔍 Service Worker 등록 시도...', 'debug');
-                navigator.serviceWorker.register('/firebase-messaging-sw.js')
-                    .then((registration) => {
-                        showDebugInfo('✅ Service Worker 등록됨', 'success');
-                        requestPermissionAndGetToken(messaging, registration);
-                    })
-                    .catch((error) => {
-                        showDebugInfo(`❌ Service Worker 등록 실패: ${error.message}`, 'error');
-                        // iOS Safari에서 Service Worker 실패 시 대안 시도
-                        if (error.message.includes('window')) {
-                            showDebugInfo('💡 iOS Safari 제한으로 인한 실패', 'debug');
-                            showDebugInfo('💡 PWA 모드에서 시도해보세요', 'debug');
-                        }
-                    });
-            } else {
-                showDebugInfo('❌ Firebase Messaging이 초기화되지 않음', 'error');
-            }
-        };
-        
-        window.testServerConnection = function() {
-            showDebugInfo('🌐 서버 연결 테스트 시작', 'debug');
-            fetch('/api/fcm/register/', {
-                method: 'GET',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                }
-            })
-            .then(response => {
-                showDebugInfo(`📡 서버 응답: ${response.status}`, response.ok ? 'success' : 'error');
-                return response.json();
-            })
-            .then(data => {
-                showDebugInfo(`✅ 서버 연결 성공: ${JSON.stringify(data)}`, 'success');
-            })
-            .catch(error => {
-                showDebugInfo(`❌ 서버 연결 실패: ${error.message}`, 'error');
-            });
-        };
-        
-        // 디버깅 패널 생성 함수
-        function createDebugPanel() {
-            const debugHTML = `
-                <div id="debugPanel" style="position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 10px; font-size: 12px; z-index: 10000; max-width: 250px;">
-                    <h4 style="margin: 0 0 10px 0; color: #ff6b6b;">🔧 디버깅 패널</h4>
-                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <button onclick="debugFCMProcess()" style="background: #4ecdc4; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">상태 확인</button>
-                        <button onclick="forceFCMRegistration()" style="background: #96ceb4; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">강제 등록</button>
-                        <button onclick="forceIOSFCMWithoutSW()" style="background: #e83e8c; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">iOS 대안 등록</button>
-                        <button onclick="testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">서버 테스트</button>
-                        <button onclick="resetIOSNotificationPermission()" style="background: #ffa726; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">권한 재설정</button>
-                        <button onclick="toggleConsoleLogs()" id="consoleToggleBtn" style="background: #6f42c1; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">콘솔 로그 켜기</button>
-                        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background: #ff6b6b; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">닫기</button>
-                    </div>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', debugHTML);
-        }
-        
-        // 콘솔 로그 토글 함수
-        let consoleLogsEnabled = false;
-        window.toggleConsoleLogs = function() {
-            consoleLogsEnabled = !consoleLogsEnabled;
-            const btn = document.getElementById('consoleToggleBtn');
-            if (btn) {
-                btn.textContent = consoleLogsEnabled ? '콘솔 로그 끄기' : '콘솔 로그 켜기';
-                btn.style.background = consoleLogsEnabled ? '#dc3545' : '#6f42c1';
-            }
-            showDebugInfo(`콘솔 로그 ${consoleLogsEnabled ? '활성화' : '비활성화'}됨`, consoleLogsEnabled ? 'success' : 'debug');
-        };
-        
-        // iOS Safari 권한 재설정 함수
-        function resetIOSNotificationPermission() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            
-            if (isIOS && isSafari) {
-                // localStorage에서 권한 요청 기록 삭제
-                localStorage.removeItem('notification_permission_requested');
-                localStorage.removeItem('notification_permission_denied_message');
-                
-                console.log('[iOS Safari] 권한 요청 기록이 재설정되었습니다.');
-                showNotificationMessage('🔄 알림 권한 요청이 재설정되었습니다. 페이지를 새로고침해주세요.', 'info');
-            }
-        }
-        
-        // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
-        window.resetIOSNotificationPermission = resetIOSNotificationPermission;
-        
-        // iOS Safari 권한 상태 확인 함수
-        function checkIOSPermissionStatus() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-            
-            console.log('=== iOS Safari 권한 상태 확인 ===');
-            console.log('iOS 감지:', isIOS);
-            console.log('Safari 감지:', isSafari);
-            console.log('PWA 모드:', isStandalone);
-            console.log('알림 권한:', Notification.permission);
-            console.log('FCM 토큰 등록됨:', fcmTokenRegistered);
-            console.log('권한 요청 기록:', localStorage.getItem('notification_permission_requested'));
-            console.log('거부 메시지 표시됨:', localStorage.getItem('notification_permission_denied_message'));
-            
-            return {
-                isIOS,
-                isSafari,
-                isStandalone,
-                permission: Notification.permission,
-                fcmRegistered: fcmTokenRegistered,
-                hasRequested: localStorage.getItem('notification_permission_requested'),
-                hasShownDenied: localStorage.getItem('notification_permission_denied_message')
-            };
-        }
-        
-        // 전역 함수로 등록
-        window.checkIOSPermissionStatus = checkIOSPermissionStatus;
-        
-        // iOS Safari 전용 디버깅 함수
-        window.debugIOSDataTransfer = function() {
-            console.log('=== iOS Safari Data Transfer Debug ===');
-            
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-            
-            console.log('iOS detected:', isIOS);
-            console.log('Safari detected:', isSafari);
-            console.log('User Agent:', navigator.userAgent);
-            console.log('CSRF Token:', getCookie('csrftoken'));
-            console.log('Notification permission:', Notification.permission);
-            
-            // 실제 디바이스 정보로 연결 테스트
-            const deviceInfo = {
-                platform: isIOS ? 'ios' : 'web',
-                user_agent: navigator.userAgent,
-                device_type: isIOS ? 'mobile' : (navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'),
-                browser: getBrowserInfo(),
-                timestamp: new Date().toISOString()
-            };
-            
-            console.log('Sending device info for connection test...');
-            
-            // fetch 테스트
-            fetch('/api/fcm/register/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify(deviceInfo)
-            })
-            .then(response => {
-                console.log('Fetch test response status:', response.status);
-                return response.text();
-            })
-            .then(text => {
-                console.log('Fetch test response:', text);
-            })
-            .catch(error => {
-                console.error('Fetch test failed:', error);
-                
-                // XMLHttpRequest 테스트
-                console.log('Trying XMLHttpRequest...');
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/fcm/register/', true);
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
-                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        console.log('XHR test status:', xhr.status);
-                        console.log('XHR test response:', xhr.responseText);
-                    }
-                };
-                
-                xhr.send(JSON.stringify(deviceInfo));
-            });
-        };
-        
-        // iOS Safari 전용 테스트 함수
-        window.testIOSFCMRegistration = async function() {
-            const iosSupport = await detectIOSPushSupport();
-            
-            if (!iosSupport.supported && iosSupport.reason === 'Not iOS Safari') {
-                console.log('❌ This is not iOS Safari');
-                return;
-            }
-            
-            if (Notification.permission !== 'granted') {
-                Notification.requestPermission().then(async function(permission) {
-                    if (permission === 'granted') {
-                        const newIOSSupport = await detectIOSPushSupport();
-                        if (newIOSSupport.supported) {
-                            handleIOSFCMRegistration(newIOSSupport.registration);
-                        }
-                    }
-                });
-                return;
-            }
-            
-            if (iosSupport.supported) {
-                handleIOSFCMRegistration(iosSupport.registration);
-            } else {
-                console.log('❌ iOS Safari web push not supported');
-                console.log('Reason:', iosSupport.reason);
-                console.log('Message:', iosSupport.message);
-            }
-        };
-        
-        // 수동 FCM 토큰 등록 테스트 함수
-        window.testFCMTokenRegistration = async function() {
-            if (Notification.permission !== 'granted') {
-                Notification.requestPermission().then(async function(permission) {
-                    if (permission === 'granted') {
-                        await checkFCMTokenStatus();
-                    }
-                });
-                return;
-            }
-            
-            const pushSupport = await checkWebPushSupport();
-            if (!pushSupport.supported) {
-                console.log('❌ Web push not supported');
-                console.log('Reason:', pushSupport.reason);
-                return;
-            }
-            
-            if (typeof messaging === 'undefined') {
-                console.log('❌ Firebase messaging not available');
-                return;
-            }
-            
-            await checkFCMTokenStatus();
-        };
-        
-        // FCM 토큰 강제 재생성 함수
-        window.forceFCMTokenRefresh = function() {
-            if (typeof messaging === 'undefined') {
-                return;
-            }
-            
-            // 기존 토큰 삭제 후 새로 생성
-            deleteToken(messaging).then(() => {
-                return getToken(messaging, { 
-                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA' 
-                });
-            }).then((token) => {
-                if (token) {
-                    sendTokenToServer(token);
-                }
-            }).catch((err) => {
-                // 오류 처리
-            });
-        };
-        
-
-        
-        // 실제 FCM 토큰으로 POST 요청 테스트
-        window.testPostRequest = async function() {
-            console.log('=== Testing POST Request with FCM Token ===');
-            
-            try {
-                // 실제 FCM 토큰 생성
-                if (typeof messaging === 'undefined') {
-                    showNotificationMessage('❌ Firebase Messaging이 초기화되지 않았습니다.', 'error');
-                    return;
-                }
-                
-                const currentToken = await getToken(messaging, {
-                    vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
-                });
-                
-                if (!currentToken) {
-                    showNotificationMessage('❌ FCM 토큰 생성에 실패했습니다.', 'error');
-                    return;
-                }
-                
-                const deviceInfo = {
-                    token: currentToken,
-                    name: 'FCM Test Device',
-                    platform: 'web',
-                    user_agent: navigator.userAgent,
-                    device_type: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
-                    browser: getBrowserInfo()
-                };
-                
-                const response = await fetch('/api/fcm/register/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken'),
-                    },
-                    body: JSON.stringify(deviceInfo)
-                });
-                
-                const data = await response.json();
-                console.log('POST test successful:', data);
-                showNotificationMessage('✅ FCM 토큰으로 POST 요청이 성공했습니다!', 'success');
-            } catch (error) {
-                console.error('POST test failed:', error);
-                showNotificationMessage('❌ POST 요청에 실패했습니다.', 'error');
-            }
-        };
-
-
-        
-
     </script>
     
-  
     <style>
+        @font-face {
+            font-family: 'Pretendard';
+            src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+            font-weight: 400;
+            font-style: normal;
+        }
+        
+        body {
+            font-family: 'Pretendard', sans-serif;
+        }
+        
         :root {
             --bs-primary: #0152a8 !important;
             --bs-primary-rgb: 1, 82, 168 !important;
@@ -1719,7 +623,7 @@
         }
         
         body {
-            margin: 0; /* 브라우저 기본 여백 제거 */
+            margin: 0;
             font-family: "Noto Sans KR", sans-serif;
             font-optical-sizing: auto;
             font-weight: <weight>;
@@ -1786,48 +690,45 @@
                 </ul>
             </div>
         </div>
-    
     </nav>
     <!-- Offcanvas Navbar 끝 -->
-    <div class="container">
-        
     
+    <div class="container">
         <div>
             {% block content %}{% endblock %}
         </div>
 
         <!-- Footer - Updated -->
-        <footer class="footer p-5" style="background-color: #0152a8; color: #fff;"> {# 배경색 및 텍스트 색상 변경, 패딩 증가 #}
-                <div style="display: flex; align-items: center;">
-                  <!-- 인스타그램 아이콘 -->
-                  <a href="https://www.instagram.com/bloomingswim/" target="_blank" style="margin-right: 16px;">
+        <footer class="footer p-5" style="background-color: #0152a8; color: #fff;">
+            <div style="display: flex; align-items: center;">
+                <!-- 인스타그램 아이콘 -->
+                <a href="https://www.instagram.com/bloomingswim/" target="_blank" style="margin-right: 16px;">
                     <img src="{% static 'img/main_img_28.png' %}" alt="인스타그램" style="width: 48px; height: 48px;">
-                  </a>
-                  <!-- 카카오톡 아이콘 -->
-                  <a href="http://pf.kakao.com/_AkJFn" target="_blank" style="margin-right: 4px;">
+                </a>
+                <!-- 카카오톡 아이콘 -->
+                <a href="http://pf.kakao.com/_AkJFn" target="_blank" style="margin-right: 4px;">
                     <img src="{% static 'img/main_img_29.png' %}" alt="카카오톡" style="width: 48px; height: 48px;">
-                  </a>
-                  <!-- 네이버 블로그 아이콘 -->
-                  <a href="https://blog.naver.com/designusplus" target="_blank" style="margin-right: 24px;">
+                </a>
+                <!-- 네이버 블로그 아이콘 -->
+                <a href="https://blog.naver.com/designusplus" target="_blank" style="margin-right: 24px;">
                     <img src="{% static 'img/main_img_30.png' %}" alt="블로그" style="width: 70px; height: 70px;">
-                  </a>
-                  <!-- 사업자 정보 -->
-                  <div style="font-size: 1rem;">
+                </a>
+                <!-- 사업자 정보 -->
+                <div style="font-size: 1rem;">
                     상호: 디자인어스플러스<br>
                     대표: 김호철 | 사업자등록번호: 336-07-03021<br>
-                  </div>
                 </div>
-              
-            <hr class="text-white mt-4 mb-3"> {# 구분선 추가 #}
+            </div>
+            
+            <hr class="text-white mt-4 mb-3">
             <div class="row">
                 <div class="col-12 text-center small" style="color: #fff;">
                     <p>&copy; {% now "Y" %} designusplus. All rights reserved.</p>
                 </div>
             </div>
-        </div>
         </footer>
-        
     </div>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // 모바일로 간주할 최대 너비 (600px 이하에서만 작동)
@@ -1835,32 +736,31 @@
             // 데스크톱 레이아웃의 기준 너비 (실제 레이아웃 너비)
             const desktopLayoutWidth = 650;
 
-    
             const mainContentContainer = document.querySelector('.container');
-    
+
             // 화면 크기에 따라 스케일을 조정하는 함수
             function adjustScale() {
                 const viewportWidth = window.innerWidth;
                 const viewportHeight = window.innerHeight;
-    
+
                 // 뷰포트 너비가 mobileBreakpoint보다 작을 때만 작동
                 if (mainContentContainer && viewportWidth <= mobileBreakpoint) {
                     const scale = viewportWidth / desktopLayoutWidth; // 축소 비율 계산
                     const desktopLayoutHeight = viewportHeight * scale;
-    
+
                     // 컨테이너 너비를 기준 너비로 설정하고, 계산된 비율로 축소
                     mainContentContainer.style.width = desktopLayoutWidth + 'px';
                     mainContentContainer.style.height = desktopLayoutHeight + 'px';
                     mainContentContainer.style.transform = `scale(${scale})`;
                     mainContentContainer.style.transformOrigin = 'top left';
-    
+
                     // 축소된 컨테이너가 중앙에 오도록 마진 조정
                     mainContentContainer.style.marginLeft = 'auto';
                     mainContentContainer.style.marginRight = 'auto';
-    
+
                     // body에 overflow-x: hidden을 강제하여 가로 스크롤 방지
                     document.body.style.overflowX = 'hidden';
-    
+
                 } else {
                     // mobileBreakpoint보다 크거나 같을 때 (PC 또는 넓은 모바일 화면)
                     // 인라인 스타일 제거하여 CSS 규칙에 따르도록 함
@@ -1875,10 +775,10 @@
                     document.body.style.overflowX = '';
                 }
             }
-    
+
             // 페이지 로드 시 한 번 실행하여 초기 스케일 조정
             adjustScale();
-    
+
             // 화면 크기가 변경될 때마다 실행 (디바이스 회전 등)
             window.addEventListener('resize', adjustScale);
             
@@ -1886,13 +786,13 @@
             setTimeout(adjustScale, 100);
         });
     </script>
-</body>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Font Awesome for Social Icons (Optional, or use Phosphor) -->
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <!-- Font Awesome for Social Icons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    
     <!-- Custom JavaScript for Form Submission -->
     <script>
-        
         document.addEventListener('DOMContentLoaded', function() {
             // Lazy Loading Script
             const lazyImages = document.querySelectorAll('.lazy-image');
@@ -1914,7 +814,7 @@
                                 
                                 img.onerror = function() {
                                     console.error('Failed to load image:', dataSrc);
-                                    img.classList.add('loaded'); // Show placeholder or error state
+                                    img.classList.add('loaded');
                                 };
                             }
                             
@@ -1922,7 +822,7 @@
                         }
                     });
                 }, {
-                    rootMargin: '50px 0px', // Start loading 50px before the image enters viewport
+                    rootMargin: '50px 0px',
                     threshold: 0.01
                 });
                 
@@ -1945,16 +845,15 @@
 
             // Function to handle form submission
             const handleFormSubmission = async (email, messageElement) => {
-                 messageElement.classList.add('d-none'); // Hide previous messages
-                 messageElement.classList.remove('text-success', 'text-danger');
+                messageElement.classList.add('d-none');
+                messageElement.classList.remove('text-success', 'text-danger');
 
                 try {
-                    const response = await fetch('/api/subscribe/', { // Django API endpoint
+                    const response = await fetch('/api/subscribe/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                             // Include CSRF token for Django if needed (best practice)
-                             'X-CSRFToken': getCookie('csrftoken')
+                            'X-CSRFToken': getCookie('csrftoken')
                         },
                         body: JSON.stringify({ email: email })
                     });
@@ -1965,25 +864,20 @@
                     if (response.ok) {
                         messageElement.classList.add('text-success');
                         messageElement.textContent = '성공적으로 구독되었습니다! 감사합니다.';
-                         // Clear the input field on success
-                         emailInput.value = '';
-                         if (modalEmailInput) modalEmailInput.value = '';
+                        emailInput.value = '';
+                        if (modalEmailInput) modalEmailInput.value = '';
 
-                         // If submitted from modal, close the modal
-                         if (messageElement === modalFormMessage) {
-                             const modal = bootstrap.Modal.getInstance(document.getElementById('emailModal'));
-                             if (modal) {
+                        if (messageElement === modalFormMessage) {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('emailModal'));
+                            if (modal) {
                                 setTimeout(() => {
                                     modal.hide();
-                                     // Optionally clear the message after closing modal
-                                     modalFormMessage.classList.add('d-none');
-                                }, 3000); // Hide modal after 3 seconds
-                             }
-                         }
-
+                                    modalFormMessage.classList.add('d-none');
+                                }, 3000);
+                            }
+                        }
                     } else {
                         messageElement.classList.add('text-danger');
-                         // Display specific error message from backend if available
                         messageElement.textContent = data.error || '구독에 실패했습니다. 다시 시도해주세요.';
                     }
                 } catch (error) {
@@ -1997,44 +891,40 @@
             // Event listener for the main form
             if (subscribeForm) {
                 subscribeForm.addEventListener('submit', function(event) {
-                    event.preventDefault(); // Prevent default form submission
+                    event.preventDefault();
                     if (subscribeForm.checkValidity()) {
-                         handleFormSubmission(emailInput.value, formMessage);
+                        handleFormSubmission(emailInput.value, formMessage);
                     } else {
-                        // If form is invalid, browser will show default validation messages
-                         formMessage.classList.remove('d-none');
-                         formMessage.classList.add('text-danger');
-                         formMessage.textContent = '이메일 주소와 개인정보 처리 방침 동의는 필수입니다.';
+                        formMessage.classList.remove('d-none');
+                        formMessage.classList.add('text-danger');
+                        formMessage.textContent = '이메일 주소와 개인정보 처리 방침 동의는 필수입니다.';
                     }
-                    subscribeForm.classList.add('was-validated'); // Add Bootstrap validation styles
+                    subscribeForm.classList.add('was-validated');
                 }, false);
             }
 
             // Event listener for the modal form button
             if (modalSubmitBtn) {
                 modalSubmitBtn.addEventListener('click', function(event) {
-                    // Since modal form is not a standard submit button, manually check validity
                     if (modalEmailInput.checkValidity() && modalPrivacyCheck.checkValidity()) {
-                         handleFormSubmission(modalEmailInput.value, modalFormMessage);
-                         modalSubscribeForm.classList.remove('was-validated'); // Reset validation state
+                        handleFormSubmission(modalEmailInput.value, modalFormMessage);
+                        modalSubscribeForm.classList.remove('was-validated');
                     } else {
-                         modalFormMessage.classList.remove('d-none');
-                         modalFormMessage.classList.add('text-danger');
-                         modalFormMessage.textContent = '이메일 주소와 개인정보 처리 방침 동의는 필수입니다.';
-                         modalSubscribeForm.classList.add('was-validated'); // Add Bootstrap validation styles
+                        modalFormMessage.classList.remove('d-none');
+                        modalFormMessage.classList.add('text-danger');
+                        modalFormMessage.textContent = '이메일 주소와 개인정보 처리 방침 동의는 필수입니다.';
+                        modalSubscribeForm.classList.add('was-validated');
                     }
                 });
             }
 
-
-            // Helper function to get CSRF token (needed for Django POST requests)
+            // Helper function to get CSRF token
             function getCookie(name) {
                 let cookieValue = null;
                 if (document.cookie && document.cookie !== '') {
                     const cookies = document.cookie.split(';');
                     for (let i = 0; i < cookies.length, i < 10; i++) {
                         const cookie = cookies[i].trim();
-                        // Does this cookie string begin with the name we want?
                         if (cookie.substring(0, name.length + 1) === (name + '=')) {
                             cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                             break;
@@ -2043,29 +933,25 @@
                 }
                 return cookieValue;
             }
-
         });
 
-         // JavaScript to trigger animations on scroll
-         const sections = document.querySelectorAll('.fade-in-section');
+        // JavaScript to trigger animations on scroll
+        const sections = document.querySelectorAll('.fade-in-section');
 
-         const observer = new IntersectionObserver(function(entries, observer) {
+        const observer = new IntersectionObserver(function(entries, observer) {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('is-visible');
                     observer.unobserve(entry.target);
-                } else {
-                   // entry.target.classList.remove('is-visible'); // If you want the animation to trigger every time it comes into view
                 }
             });
-         }, {
-             threshold: 0.15
-         });
+        }, {
+            threshold: 0.15
+        });
 
-         sections.forEach(section => {
+        sections.forEach(section => {
             observer.observe(section);
-         });
-
+        });
     </script>
-
+</body>
 </html>

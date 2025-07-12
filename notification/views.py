@@ -75,7 +75,6 @@ class FCMTokenRegisterView(APIView):
         print(f"X-Forwarded-For: {request.META.get('HTTP_X_FORWARDED_FOR', 'None')}")
         print(f"Request Headers: {dict(request.headers)}")
         print(f"Request Data: {request.data}")
-        print(f"Request Body: {request.body}")
         print(f"Content Type: {request.content_type}")
         
         # iOS Safari 특별 로깅

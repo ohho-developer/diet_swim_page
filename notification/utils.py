@@ -75,41 +75,7 @@ def send_ios_notification(user, title, body, data=None):
     
     return success_count > 0
 
-def send_email_notification(user, title, body, data=None):
-    """이메일 알림 전송 (iOS Safari 대안)"""
-    try:
-        from django.core.mail import send_mail
-        from django.conf import settings
-        from django.template.loader import render_to_string
-        
-        # 이메일 템플릿 렌더링
-        context = {
-            'user': user,
-            'title': title,
-            'body': body,
-            'data': data or {},
-            'site_url': 'https://bloomingswim.designusplus.com'
-        }
-        
-        html_message = render_to_string('notification/email_notification.html', context)
-        plain_message = f"{title}\n\n{body}\n\n사이트 방문: https://bloomingswim.designusplus.com"
-        
-        # 이메일 전송
-        send_mail(
-            subject=f"[Blooming Swim] {title}",
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
-        )
-        
-        print(f"[DEBUG] Email notification sent to {user.username} ({user.email})")
-        return True
-        
-    except Exception as e:
-        print(f"[DEBUG] Email notification failed for {user.username}: {e}")
-        return False
+
 
 def send_fcm_notification(user, title, body, data=None, data_only=False):
     """
@@ -151,6 +117,8 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
         print(f"No active FCM devices found for user: {user.username}")
         # FCM 디바이스가 없으면 실패로 처리
         return False
+    
+
 
     registration_ids = [device.registration_id for device in devices]
     print(f"[DEBUG] Sending FCM to user: {user.username}, registration_ids: {registration_ids}")

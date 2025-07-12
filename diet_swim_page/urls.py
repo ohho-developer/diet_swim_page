@@ -34,11 +34,11 @@ urlpatterns = [
 # Service Worker 파일을 웹사이트 루트에 제공하는 로직 (DEBUG 여부에 따라 다르게)
 if settings.DEBUG:
     # 개발 환경에서는 django.views.static.serve를 사용하여 직접 서빙
-    # firebase-messaging-sw.js가 BASE_DIR/static/ 에 있다고 가정
+    # firebase-messaging-sw.js가 BASE_DIR에 있음
     urlpatterns += [
         path('firebase-messaging-sw.js', serve, {
             'path': 'firebase-messaging-sw.js',
-            'document_root': os.path.join(settings.BASE_DIR, 'static')
+            'document_root': settings.BASE_DIR
         }),
     ]
     # Django 개발 서버가 /static/ 경로의 파일들을 서빙하도록 하는 설정은 보통 필요 없음
