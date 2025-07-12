@@ -22,10 +22,11 @@ firebase.initializeApp(firebaseConfig);
 // messages.
 const messaging = firebase.messaging();
 
-// iOS Safari 감지
+// iOS Safari 감지 (Service Worker 환경에서는 window 사용 불가)
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-const isStandalone = 'standalone' in window.navigator && window.navigator.standalone;
+// Service Worker에서는 standalone 정보를 직접 확인할 수 없으므로 제거
+const isStandalone = false;
 
 // 백그라운드 메시지 수신 처리 (iOS Safari 강화)
 messaging.onBackgroundMessage((payload) => {
