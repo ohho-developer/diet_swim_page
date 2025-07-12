@@ -122,6 +122,10 @@ def wellness_dashboard_view(request):
     for c in checkins:
         for k in question_keys:
             val = c.responses.get(k)
+            # 새 질문이 추가된 경우 None 값을 0으로 처리하거나 제외
+            if val is None:
+                # 새 질문이 추가된 경우 해당 날짜의 데이터는 제외
+                continue
             wellness_data[k].append({'date': c.date.strftime('%Y-%m-%d'), 'score': val})
     # 체중 변화 리스트 (그래프용)
     weight_data_weights = [c['weight'] for c in weight_data]
@@ -180,6 +184,10 @@ def wellness_dashboard_view(request):
     weight_data_dates = [c['date'] for c in weight_data]
     weight_data_weights = [c['weight'] for c in weight_data]
     wellness_data_scores = {k: [v['score'] for v in wellness_data[k]] for k in question_keys}
+    # 데이터가 없는 질문은 빈 리스트로 처리
+    for k in question_keys:
+        if not wellness_data_scores[k]:
+            wellness_data_scores[k] = []
     # JS용 데이터셋 가공
     wellness_chart_datasets = [
         {
@@ -433,7 +441,9 @@ def causal_analysis_api(request):
 
 def perform_regression_analysis(checkins, question_keys):
     """회귀분석을 수행하고 결과를 반환하는 공통 함수"""
-    if len(checkins) < 10:
+    # 최소 데이터 요구사항: 자유도가 최소 1 이상이 되도록
+    min_required_data = len(question_keys) + 2  # 변수 수 + 2 (자유도 1 이상)
+    if len(checkins) < min_required_data:
         return None, None, None, None, None, None
     
     max_lag = 7
@@ -452,6 +462,11 @@ def perform_regression_analysis(checkins, question_keys):
         ])
         X = df[question_keys][:-lag].values
         y = df['weight'][lag:].values
+        
+        # 자유도 검증: 최소 자유도 1 이상 보장
+        if len(y) <= len(question_keys) + 1:
+            continue  # 자유도가 0 이하인 경우 건너뛰기
+        
         model = LinearRegression()
         model.fit(X, y)
         y_pred = model.predict(X)
@@ -476,7 +491,18 @@ def perform_regression_analysis(checkins, question_keys):
         y = df['weight'][best_lag:].values
         y_pred = best_model.predict(X)
         residuals = y - y_pred
-        mse = np.sum(residuals**2) / (len(y) - len(question_keys) - 1)
+        # 자유도 계산
+        df = len(y) - len(question_keys) - 1
+        if df <= 0:
+            # 자유도가 0 이하인 경우 p값을 None으로 설정
+            p_values = np.array([None] * len(question_keys))
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2
+        
+        mse = np.sum(residuals**2) / df
+        # MSE가 0인 경우 처리
+        if mse <= 0:
+            p_values = np.array([None] * len(question_keys))
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2
         
         # 더 안전한 방법으로 표준오차 계산
         try:
@@ -487,13 +513,28 @@ def perform_regression_analysis(checkins, question_keys):
                 p_values = np.array([None] * len(question_keys))
             else:
                 var_b = mse * np.linalg.inv(XTX).diagonal()
-                sd_b = np.sqrt(var_b)
+                # 음수 분산 및 NaN 방지
+                var_b = np.where((var_b <= 0) | np.isnan(var_b), np.inf, var_b)
+                # 안전한 제곱근 계산
+                try:
+                    sd_b = np.sqrt(var_b)
+                except (RuntimeWarning, ValueError):
+                    # sqrt 오류 시 inf로 처리
+                    sd_b = np.where(np.isnan(var_b) | (var_b <= 0), np.inf, np.sqrt(np.abs(var_b)))
                 # 0으로 나누기 방지
                 sd_b = np.where(sd_b == 0, np.inf, sd_b)
                 t_b = best_coefs / sd_b
                 # inf 값 처리
                 t_b = np.where(np.isinf(t_b), 0, t_b)
-                p_values = 2 * (1 - stats.t.cdf(abs(t_b), len(y) - len(question_keys) - 1))
+                
+                # NaN 값 방지를 위한 추가 검증
+                try:
+                    p_values = 2 * (1 - stats.t.cdf(abs(t_b), df))
+                    # NaN 값 처리
+                    p_values = np.where(np.isnan(p_values), None, p_values)
+                except (ValueError, RuntimeWarning):
+                    # 통계 계산 오류 시 p값을 None으로 설정
+                    p_values = np.array([None] * len(question_keys))
         except (np.linalg.LinAlgError, ValueError):
             # 선형대수 오류가 발생하면 p값을 None으로 설정
             p_values = np.array([None] * len(question_keys))
