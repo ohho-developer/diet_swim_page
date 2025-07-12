@@ -126,28 +126,141 @@
         function sendTokenToServer(token) {
             console.log('Sending token to server:', token);
             
+            // iOS Safari 감지
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            // iOS Safari 전용 헤더 설정
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            };
+            
+            // iOS Safari에서는 추가 헤더 설정
+            if (isIOS && isSafari) {
+                headers['X-Requested-With'] = 'XMLHttpRequest';
+                headers['Accept'] = 'application/json, text/plain, */*';
+            }
+            
+            const requestData = {
+                token: token,
+                name: isIOS ? 'iOS Safari' : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
+                platform: isIOS ? 'ios' : 'web',
+                user_agent: navigator.userAgent
+            };
+            
+            console.log('Request data:', requestData);
+            console.log('Request headers:', headers);
+            
             // 올바른 API 엔드포인트 URL 사용
             fetch('/api/fcm/register/', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                },
-                body: JSON.stringify({ 
-                    token: token, 
-                    name: navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser' 
-                })
+                headers: headers,
+                body: JSON.stringify(requestData),
+                // iOS Safari를 위한 추가 옵션
+                credentials: 'same-origin',
+                mode: 'cors'
             })
             .then(response => {
                 console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 return response.json();
             })
             .then(data => {
                 console.log('Token sent to server successfully:', data);
+                
+                // 성공 메시지 표시
+                if (isIOS && isSafari) {
+                    showNotificationMessage('✅ iOS 푸시 알림이 설정되었습니다!', 'success');
+                } else {
+                    showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
+                }
             })
             .catch(error => {
                 console.error('Error sending token to server:', error);
+                console.log('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                // iOS Safari에서 fetch 실패 시 XMLHttpRequest로 재시도
+                if (isIOS && isSafari) {
+                    console.log('Retrying with XMLHttpRequest for iOS Safari...');
+                    sendTokenToServerWithXHR(token);
+                } else {
+                    // iOS Safari 전용 오류 처리
+                    if (isIOS && isSafari) {
+                        showNotificationMessage('❌ iOS에서 서버 연결에 실패했습니다. 네트워크를 확인해주세요.', 'error');
+                    } else {
+                        showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
+                    }
+                }
             });
+        }
+
+        // iOS Safari 전용 XMLHttpRequest 방식 (fetch 실패 시 대체)
+        function sendTokenToServerWithXHR(token) {
+            console.log('Using XMLHttpRequest for iOS Safari');
+            
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            const requestData = {
+                token: token,
+                name: isIOS ? 'iOS Safari' : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
+                platform: isIOS ? 'ios' : 'web',
+                user_agent: navigator.userAgent
+            };
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/fcm/register/', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    console.log('XHR Response status:', xhr.status);
+                    console.log('XHR Response:', xhr.responseText);
+                    
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            console.log('Token sent to server successfully via XHR:', data);
+                            
+                            if (isIOS && isSafari) {
+                                showNotificationMessage('✅ iOS 푸시 알림이 설정되었습니다!', 'success');
+                            } else {
+                                showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
+                            }
+                        } catch (e) {
+                            console.error('Error parsing XHR response:', e);
+                            showNotificationMessage('❌ 서버 응답을 처리할 수 없습니다.', 'error');
+                        }
+                    } else {
+                        console.error('XHR failed with status:', xhr.status);
+                        showNotificationMessage('❌ 서버 연결에 실패했습니다.', 'error');
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.error('XHR network error');
+                showNotificationMessage('❌ 네트워크 오류가 발생했습니다.', 'error');
+            };
+            
+            try {
+                xhr.send(JSON.stringify(requestData));
+            } catch (e) {
+                console.error('Error sending XHR request:', e);
+                showNotificationMessage('❌ 요청 전송에 실패했습니다.', 'error');
+            }
         }
 
         // CSRF 토큰을 가져오는 헬퍼 함수 (Django 사용 시 필요)
@@ -450,6 +563,67 @@
         
         // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
         window.checkFCMDeviceStatus = checkFCMDeviceStatus;
+        
+        // iOS Safari 전용 디버깅 함수
+        window.debugIOSDataTransfer = function() {
+            console.log('=== iOS Safari Data Transfer Debug ===');
+            
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            console.log('iOS detected:', isIOS);
+            console.log('Safari detected:', isSafari);
+            console.log('User Agent:', navigator.userAgent);
+            console.log('CSRF Token:', getCookie('csrftoken'));
+            console.log('Notification permission:', Notification.permission);
+            
+            // 간단한 테스트 요청
+            const testData = {
+                test: true,
+                platform: isIOS ? 'ios' : 'web',
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('Sending test request...');
+            
+            // fetch 테스트
+            fetch('/api/fcm/register/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(testData)
+            })
+            .then(response => {
+                console.log('Fetch test response status:', response.status);
+                return response.text();
+            })
+            .then(text => {
+                console.log('Fetch test response:', text);
+            })
+            .catch(error => {
+                console.error('Fetch test failed:', error);
+                
+                // XMLHttpRequest 테스트
+                console.log('Trying XMLHttpRequest...');
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/fcm/register/', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        console.log('XHR test status:', xhr.status);
+                        console.log('XHR test response:', xhr.responseText);
+                    }
+                };
+                
+                xhr.send(JSON.stringify(testData));
+            });
+        };
         
         // iOS Safari 전용 테스트 함수
         window.testIOSFCMRegistration = function() {
