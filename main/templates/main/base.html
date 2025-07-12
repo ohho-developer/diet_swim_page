@@ -275,17 +275,35 @@
         // 서비스 워커 등록
         // service-worker.js 파일이 웹 서버 루트에 있어야 합니다.
         // 또는 scope 옵션으로 경로를 지정할 수 있습니다.
-        navigator.serviceWorker.register('/firebase-messaging-sw.js')
-            .then((registration) => {
-                console.log('Service Worker registered with scope:', registration.scope);
-                // 푸시 알림 권한 요청 및 토큰 가져오기 (중복 방지)
-                if (!fcmTokenRegistered) {
-                    requestPermissionAndGetToken(messaging, registration);
-                }
-            })
-            .catch((error) => {
-                console.error('Service Worker registration failed:', error);
-            });
+        if ('serviceWorker' in navigator) {
+            // iOS Safari에서 Service Worker 등록 시 발생할 수 있는 오류 방지
+            try {
+                navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                    .then((registration) => {
+                        showDebugInfo('✅ Service Worker 등록 성공', 'success');
+                        console.log('Service Worker registered with scope:', registration.scope);
+                        // 푸시 알림 권한 요청 및 토큰 가져오기 (중복 방지)
+                        if (!fcmTokenRegistered) {
+                            requestPermissionAndGetToken(messaging, registration);
+                        }
+                    })
+                    .catch((error) => {
+                        showDebugInfo(`❌ Service Worker 등록 실패: ${error.message}`, 'error');
+                        console.error('Service Worker registration failed:', error);
+                        
+                        // iOS Safari에서 Service Worker 실패 시 대안 시도
+                        if (error.message.includes('window') || error.message.includes('ReferenceError')) {
+                            showDebugInfo('💡 iOS Safari 제한으로 인한 실패', 'debug');
+                            showDebugInfo('💡 PWA 모드에서 시도하거나 iOS 대안 등록을 사용하세요', 'debug');
+                        }
+                    });
+            } catch (e) {
+                showDebugInfo(`❌ Service Worker 등록 중 예외 발생: ${e.message}`, 'error');
+                console.error('Service Worker registration exception:', e);
+            }
+        } else {
+            showDebugInfo('❌ Service Worker가 지원되지 않음', 'error');
+        }
 
 
         
@@ -525,6 +543,8 @@
                 app_version: getAppVersion()
             };
             
+            showDebugInfo('📡 XHR로 서버에 토큰 전송 중...', 'debug');
+            
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/fcm/register/', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
@@ -536,7 +556,7 @@
                     if (xhr.status === 200) {
                         try {
                             const data = JSON.parse(xhr.responseText);
-                            console.log('XHR FCM registration response:', data);
+                            showDebugInfo('✅ XHR FCM 등록 성공', 'success');
                             
                             if (isIOS && isSafari) {
                                 const message = isStandalone ? 
@@ -547,11 +567,11 @@
                                 showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
                             }
                         } catch (e) {
-                            console.error('XHR response parsing error:', e);
+                            showDebugInfo(`❌ XHR 응답 파싱 오류: ${e.message}`, 'error');
                             showNotificationMessage('❌ 서버 응답을 처리할 수 없습니다.', 'error');
                         }
                     } else {
-                        console.error('XHR error status:', xhr.status);
+                        showDebugInfo(`❌ XHR 오류 상태: ${xhr.status}`, 'error');
                         if (isIOS && isSafari) {
                             showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
                         } else {
@@ -562,7 +582,7 @@
             };
             
             xhr.onerror = function() {
-                console.error('XHR network error');
+                showDebugInfo('❌ XHR 네트워크 오류', 'error');
                 if (isIOS && isSafari) {
                     showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
                 } else {
@@ -573,7 +593,7 @@
             try {
                 xhr.send(JSON.stringify(deviceInfo));
             } catch (e) {
-                console.error('XHR send error:', e);
+                showDebugInfo(`❌ XHR 전송 오류: ${e.message}`, 'error');
                 if (isIOS && isSafari) {
                     showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
                 } else {
@@ -581,6 +601,36 @@
                 }
             }
         }
+        
+        // iOS Safari에서 Service Worker 없이 FCM 토큰 생성 시도
+        window.forceIOSFCMWithoutSW = function() {
+            showDebugInfo('🔧 iOS Safari Service Worker 없이 FCM 시도', 'debug');
+            
+            if (typeof messaging === 'undefined') {
+                showDebugInfo('❌ Firebase Messaging이 초기화되지 않음', 'error');
+                return;
+            }
+            
+            if (typeof Notification === 'undefined') {
+                showDebugInfo('❌ Notification API가 정의되지 않음', 'error');
+                return;
+            }
+            
+            // Service Worker 없이 vapidKey만으로 토큰 생성 시도
+            getToken(messaging, {
+                vapidKey: 'BCVqcI_07r1MOwKD18TuesuoLivzPR2Q5HjBgTLIfo7qk7_1InUNZ8TWtPzP4CXyfmGrhI1aQe9U7zrTWvvOjIA'
+            }).then((currentToken) => {
+                if (currentToken) {
+                    showDebugInfo(`✅ Service Worker 없이 FCM 토큰 생성 성공: ${currentToken.substring(0, 20)}...`, 'success');
+                    sendTokenToServerWithXHR(currentToken);
+                    fcmTokenRegistered = true;
+                } else {
+                    showDebugInfo('❌ Service Worker 없이 FCM 토큰 생성 실패', 'error');
+                }
+            }).catch((error) => {
+                showDebugInfo(`❌ Service Worker 없이 FCM 토큰 생성 오류: ${error.message}`, 'error');
+            });
+        };
 
         // CSRF 토큰을 가져오는 헬퍼 함수 (Django 사용 시 필요)
         function getCookie(name) {
@@ -1287,7 +1337,14 @@
                 return;
             }
             
+            // Service Worker 지원 확인
+            if (!('serviceWorker' in navigator)) {
+                showDebugInfo('❌ Service Worker가 지원되지 않음', 'error');
+                return;
+            }
+            
             if (typeof messaging !== 'undefined') {
+                showDebugInfo('🔍 Service Worker 등록 시도...', 'debug');
                 navigator.serviceWorker.register('/firebase-messaging-sw.js')
                     .then((registration) => {
                         showDebugInfo('✅ Service Worker 등록됨', 'success');
@@ -1295,6 +1352,11 @@
                     })
                     .catch((error) => {
                         showDebugInfo(`❌ Service Worker 등록 실패: ${error.message}`, 'error');
+                        // iOS Safari에서 Service Worker 실패 시 대안 시도
+                        if (error.message.includes('window')) {
+                            showDebugInfo('💡 iOS Safari 제한으로 인한 실패', 'debug');
+                            showDebugInfo('💡 PWA 모드에서 시도해보세요', 'debug');
+                        }
                     });
             } else {
                 showDebugInfo('❌ Firebase Messaging이 초기화되지 않음', 'error');
@@ -1329,6 +1391,7 @@
                     <div style="display: flex; flex-direction: column; gap: 5px;">
                         <button onclick="debugFCMProcess()" style="background: #4ecdc4; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">상태 확인</button>
                         <button onclick="forceFCMRegistration()" style="background: #96ceb4; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">강제 등록</button>
+                        <button onclick="forceIOSFCMWithoutSW()" style="background: #e83e8c; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">iOS 대안 등록</button>
                         <button onclick="testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">서버 테스트</button>
                         <button onclick="resetIOSNotificationPermission()" style="background: #ffa726; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">권한 재설정</button>
                         <button onclick="toggleConsoleLogs()" id="consoleToggleBtn" style="background: #6f42c1; border: none; color: white; padding: 8px 12px; border-radius: 5px; font-size: 11px;">콘솔 로그 켜기</button>
