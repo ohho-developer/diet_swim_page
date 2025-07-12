@@ -464,6 +464,26 @@ class ScheduledNotificationTrigger(APIView):
             return Response({'error': 'Invalid cron secret'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
+            # 중복 실행 방지: 최근 5분 내에 실행된 경우 스킵
+            from django.utils import timezone
+            from django.core.cache import cache
+            
+            cache_key = f"cron_notification_last_run_{timezone.now().strftime('%Y-%m-%d')}"
+            last_run = cache.get(cache_key)
+            
+            if last_run:
+                time_diff = timezone.now() - last_run
+                if time_diff.total_seconds() < 300:  # 5분 내에 실행된 경우
+                    print(f"[CRON] Skipping - last run was {time_diff.total_seconds():.0f} seconds ago")
+                    return Response({
+                        'message': 'Skipped - too recent execution',
+                        'last_run': str(last_run),
+                        'time_diff_seconds': time_diff.total_seconds()
+                    }, status=status.HTTP_200_OK)
+            
+            # 현재 실행 시간을 캐시에 저장
+            cache.set(cache_key, timezone.now(), 3600)  # 1시간 동안 캐시
+            
             # 모든 활성 사용자에게 알림 전송
             User = get_user_model()
             users_to_notify = User.objects.filter(is_active=True)
