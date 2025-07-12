@@ -1283,9 +1283,9 @@
                         <strong>디바이스:</strong> <span id="debugDevice">${/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'iOS' : 'Other'}</span>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <button onclick="testIOSPermission()" style="background: #4ecdc4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">권한 테스트</button>
-                        <button onclick="testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">서버 연결 테스트</button>
-                        <button onclick="forceTestToken()" style="background: #96ceb4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">강제 토큰 등록</button>
+                        <button onclick="window.testIOSPermission()" style="background: #4ecdc4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">권한 테스트</button>
+                        <button onclick="window.testServerConnection()" style="background: #45b7d1; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">서버 연결 테스트</button>
+                        <button onclick="window.forceTestToken()" style="background: #96ceb4; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">강제 토큰 등록</button>
                         <button onclick="document.getElementById('iosDebugPanel').style.display='none'" style="background: #ff6b6b; border: none; color: white; padding: 5px 10px; border-radius: 5px; font-size: 11px;">닫기</button>
                     </div>
                 </div>
@@ -1293,16 +1293,52 @@
             document.body.insertAdjacentHTML('beforeend', debugHTML);
         }
         
-        // iOS 권한 테스트
-        function testIOSPermission() {
+        // iOS 권한 테스트 - 전역 함수로 정의
+        window.testIOSPermission = function() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
-            alert(`iOS: ${isIOS}\nSafari: ${isSafari}\n권한: ${Notification.permission}\nFCM 등록: ${fcmTokenRegistered}`);
-        }
+            const message = `iOS: ${isIOS}\nSafari: ${isSafari}\nPWA 모드: ${isStandalone}\n권한: ${Notification.permission}\nFCM 등록: ${fcmTokenRegistered}`;
+            alert(message);
+            console.log('iOS Permission Test:', { isIOS, isSafari, isStandalone, permission: Notification.permission, fcmRegistered: fcmTokenRegistered });
+        };
         
-        // 강제 테스트 토큰 등록
-        function forceTestToken() {
+        // 서버 연결 테스트 - 전역 함수로 정의
+        window.testServerConnection = function() {
+            console.log('=== Server Connection Test ===');
+            
+            const testData = {
+                test: true,
+                platform: 'ios',
+                timestamp: new Date().toISOString(),
+                user_agent: navigator.userAgent
+            };
+            
+            fetch('/api/fcm/register/', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('Server test response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Server test response:', data);
+                alert('✅ 서버 연결 성공!\n\n응답: ' + JSON.stringify(data, null, 2));
+            })
+            .catch(error => {
+                console.error('Server test error:', error);
+                alert('❌ 서버 연결 실패: ' + error.message);
+            });
+        };
+        
+        // 강제 테스트 토큰 등록 - 전역 함수로 정의
+        window.forceTestToken = function() {
             const testToken = 'ios_test_token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             
             const deviceInfo = {
@@ -1332,14 +1368,15 @@
             })
             .then(data => {
                 console.log('Success:', data);
-                alert('✅ 테스트 토큰이 등록되었습니다!\n\n응답: ' + JSON.stringify(data));
+                alert('✅ 테스트 토큰이 등록되었습니다!\n\n응답: ' + JSON.stringify(data, null, 2));
                 document.getElementById('debugFCMStatus').textContent = '✅';
+                fcmTokenRegistered = true;
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('❌ 토큰 등록 실패: ' + error.message);
             });
-        }
+        };
         
         // 페이지 로드 시 iOS 디버깅 패널 표시 (iOS에서만)
         document.addEventListener('DOMContentLoaded', function() {
