@@ -66,9 +66,25 @@ class FCMTokenRegisterView(APIView):
         platform = request.data.get('platform', None)
         user_agent = request.data.get('user_agent', None)
 
+        # 토큰 유효성 검증 강화
         if not registration_id:
             print("❌ ERROR: No registration token provided")
             return Response({'error': 'FCM registration token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 토큰 길이 및 형식 검증
+        if len(registration_id) < 100:
+            print("❌ ERROR: FCM token too short")
+            return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if len(registration_id) > 500:
+            print("❌ ERROR: FCM token too long")
+            return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 토큰 형식 검증 (FCM 토큰은 보통 특정 패턴을 가짐)
+        import re
+        if not re.match(r'^[A-Za-z0-9:_-]+$', registration_id):
+            print("❌ ERROR: Invalid FCM token format")
+            return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
 
         print(f"✅ Token received: {registration_id[:50]}...")
         print(f"Device Name: {device_name}")
@@ -88,8 +104,14 @@ class FCMTokenRegisterView(APIView):
             final_platform = platform if platform else detected_platform
             final_user_agent = user_agent if user_agent else server_user_agent
             
+            # 브라우저 정보 추출
+            browser_info = self.extract_browser_info(final_user_agent)
+            device_type = self.detect_device_type(final_user_agent)
+            
             print(f"Final platform: {final_platform}")
             print(f"Final user agent: {final_user_agent}")
+            print(f"Browser info: {browser_info}")
+            print(f"Device type: {device_type}")
             
             # 이미 존재하는 토큰인지 확인하고 업데이트하거나 새로 생성
             fcm_device, created = FCMDevice.objects.update_or_create(
@@ -99,9 +121,19 @@ class FCMTokenRegisterView(APIView):
                     'name': device_name, 
                     'active': True,
                     'user_agent': final_user_agent,
-                    'platform': final_platform
+                    'platform': final_platform,
+                    'device_type': device_type,
+                    'browser': browser_info,
+                    'app_version': request.data.get('app_version', None)
                 }
             )
+            
+            # 모델 유효성 검증
+            try:
+                fcm_device.full_clean()
+            except Exception as validation_error:
+                print(f"❌ Validation error: {validation_error}")
+                return Response({'error': 'Invalid device data.'}, status=status.HTTP_400_BAD_REQUEST)
             
             print(f"✅ Device registration {'CREATED' if created else 'UPDATED'}")
             print(f"Device ID: {fcm_device.id}")
@@ -116,19 +148,59 @@ class FCMTokenRegisterView(APIView):
             print(f"User total devices: {total_devices}")
             print(f"User active devices: {active_devices}")
             
-            return Response({
+            # 성공 응답에 추가 정보 포함
+            response_data = {
                 'message': 'FCM token registered successfully.', 
                 'created': created,
                 'platform': final_platform,
                 'device_id': fcm_device.id,
                 'total_devices': total_devices,
-                'active_devices': active_devices
-            }, status=status.HTTP_200_OK)
+                'active_devices': active_devices,
+                'device_name': fcm_device.get_display_name(),
+                'device_type': device_type,
+                'browser': browser_info
+            }
+            
+            return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
             print(f"❌ ERROR registering FCM token: {e}")
             import traceback
             traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def extract_browser_info(self, user_agent):
+        """User agent에서 브라우저 정보 추출"""
+        if not user_agent:
+            return None
+        
+        user_agent_lower = user_agent.lower()
+        
+        if 'chrome' in user_agent_lower:
+            return 'Chrome'
+        elif 'safari' in user_agent_lower and 'chrome' not in user_agent_lower:
+            return 'Safari'
+        elif 'firefox' in user_agent_lower:
+            return 'Firefox'
+        elif 'edge' in user_agent_lower:
+            return 'Edge'
+        elif 'opera' in user_agent_lower:
+            return 'Opera'
+        else:
+            return 'Unknown'
+
+    def detect_device_type(self, user_agent):
+        """User agent에서 디바이스 타입 감지"""
+        if not user_agent:
+            return 'desktop'
+        
+        user_agent_lower = user_agent.lower()
+        
+        if any(keyword in user_agent_lower for keyword in ['mobile', 'android', 'iphone', 'ipad']):
+            return 'mobile'
+        elif 'tablet' in user_agent_lower:
+            return 'tablet'
+        else:
+            return 'desktop'
 
 
 class FCMTokenDeleteView(APIView):
@@ -362,34 +434,13 @@ class ScheduledNotificationTrigger(APIView):
     def post(self, request):
         # 요청 출처 확인
         user_agent = request.META.get('HTTP_USER_AGENT', '')
-        referer = request.META.get('HTTP_REFERER', '')
+        is_browser_request = any(browser in user_agent.lower() for browser in ['mozilla', 'chrome', 'safari', 'firefox'])
         
-        # 브라우저에서 온 요청인지 확인 (사용자가 버튼을 클릭한 경우)
-        is_cronjob = 'cron-job.org' in user_agent
-        is_browser_request = (
-            not is_cronjob and (
-                'mozilla' in user_agent or
-                'chrome' in user_agent or
-                'safari' in user_agent or
-                'firefox' in user_agent or
-                'edge' in user_agent or
-                'bloomingswim.designusplus.com' in referer
-            )
-        )
-        
-        # 외부 cron job에서 온 요청인 경우에만 시크릿 키 검사
+        # Cron job 시크릿 키 확인 (외부 요청인 경우)
         if not is_browser_request:
-            from django.conf import settings
-            # 헤더를 여러 방식으로 읽어봄
-            secret_key = request.headers.get('X-Secret-Key')
-            secret_key_meta = request.META.get('HTTP_X_SECRET_KEY')
-            print(f"[DEBUG] Received X-Secret-Key (headers): [{secret_key}]")
-            print(f"[DEBUG] Received X-Secret-Key (META): [{secret_key_meta}]")
-            print(f"[DEBUG] Expected CRON_SECRET_KEY: [{settings.CRON_SECRET_KEY}]")
-            print(f"[DEBUG] Content-Type: {request.content_type}")
-            # 실제 비교는 둘 중 하나라도 맞으면 통과
-            if not settings.CRON_SECRET_KEY or (secret_key != settings.CRON_SECRET_KEY and secret_key_meta != settings.CRON_SECRET_KEY):
-                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+            cron_secret = request.headers.get('X-Cron-Secret')
+            if not cron_secret or cron_secret != settings.CRON_SECRET_KEY:
+                return Response({'error': 'Invalid cron secret'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
             if is_browser_request:
@@ -414,19 +465,32 @@ class ScheduledNotificationTrigger(APIView):
                 User = get_user_model()
                 users_to_notify = User.objects.filter(is_active=True)
                 sent_count = 0
+                ios_count = 0
+                web_count = 0
+                
                 for user in users_to_notify:
                     title = "오늘 하루 잘 보내셨나요?"
                     body = f"{user.username}님, 잊지 않으셨죠? 오늘을 기록해보세요."
                     data = {"type": "daily_evening_message", "user_id": str(user.id)}
+                    
+                    # iOS 사용자 확인
+                    is_ios_user = any(device.is_ios_device() for device in user.fcm_devices.filter(active=True))
+                    
                     if send_fcm_notification(user, title, body, data):
                         sent_count += 1
-                    print(f"Notification sent to {user.username}")
+                        if is_ios_user:
+                            ios_count += 1
+                        else:
+                            web_count += 1
+                    print(f"Notification sent to {user.username} (iOS: {is_ios_user})")
+                
                 return Response({
                     'message': 'Scheduled task executed successfully',
                     'users_notified': sent_count,
+                    'ios_users': ios_count,
+                    'web_users': web_count,
                     'total_users': users_to_notify.count()
                 }, status=status.HTTP_200_OK)
                 
         except Exception as e:
-            print(f"Error executing scheduled task: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

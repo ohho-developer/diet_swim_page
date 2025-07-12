@@ -134,9 +134,37 @@
 
         // 토큰을 Django 백엔드로 전송하는 함수 (fetch API 사용)
         function sendTokenToServer(token) {
+            // 토큰 유효성 검증
+            if (!token || token.length < 100) {
+                console.error('Invalid FCM token:', token);
+                showNotificationMessage('❌ 유효하지 않은 푸시 토큰입니다.', 'error');
+                return;
+            }
+            
             // iOS Safari 감지
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            // 디바이스 정보 수집
+            const deviceInfo = {
+                token: token,
+                name: isIOS ? (isStandalone ? 'iOS PWA' : 'iOS Safari') : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
+                platform: isIOS ? 'ios' : 'web',
+                user_agent: navigator.userAgent,
+                device_type: isIOS ? 'mobile' : (navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'),
+                browser: getBrowserInfo(),
+                app_version: getAppVersion(),
+                screen_info: {
+                    width: screen.width,
+                    height: screen.height,
+                    pixel_ratio: window.devicePixelRatio || 1
+                },
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                language: navigator.language || navigator.userLanguage
+            };
+            
+            console.log('Device info being sent:', deviceInfo);
             
             // iOS Safari 전용 헤더 설정
             const headers = {
@@ -150,18 +178,11 @@
                 headers['Accept'] = 'application/json, text/plain, */*';
             }
             
-            const requestData = {
-                token: token,
-                name: isIOS ? 'iOS Safari' : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
-                platform: isIOS ? 'ios' : 'web',
-                user_agent: navigator.userAgent
-            };
-            
             // 올바른 API 엔드포인트 URL 사용
             fetch('/api/notification/fcm/register/', {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(requestData),
+                body: JSON.stringify(deviceInfo),
                 // iOS Safari를 위한 추가 옵션
                 credentials: 'same-origin',
                 mode: 'cors'
@@ -174,14 +195,31 @@
                 return response.json();
             })
             .then(data => {
+                console.log('FCM registration response:', data);
+                
                 // 성공 메시지 표시
                 if (isIOS && isSafari) {
-                    showNotificationMessage('✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!', 'success');
+                    const message = isStandalone ? 
+                        '✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!' :
+                        '✅ iOS Safari에서 푸시 알림이 설정되었습니다!';
+                    showNotificationMessage(message, 'success');
                 } else {
                     showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
                 }
+                
+                // 디바이스 정보 로깅
+                console.log('Device registered:', {
+                    id: data.device_id,
+                    platform: data.platform,
+                    device_type: data.device_type,
+                    browser: data.browser,
+                    total_devices: data.total_devices,
+                    active_devices: data.active_devices
+                });
             })
             .catch(error => {
+                console.error('FCM registration error:', error);
+                
                 // iOS Safari 특별 처리
                 if (isIOS && isSafari) {
                     showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다. PWA 모드에서만 제한적으로 작동합니다.', 'warning');
@@ -196,16 +234,46 @@
             });
         }
 
+        // 브라우저 정보 추출 함수
+        function getBrowserInfo() {
+            const userAgent = navigator.userAgent;
+            const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
+            const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+            const isFirefox = /Firefox/.test(userAgent);
+            const isEdge = /Edge/.test(userAgent);
+            const isOpera = /Opera/.test(userAgent);
+            
+            if (isChrome) return 'Chrome';
+            if (isSafari) return 'Safari';
+            if (isFirefox) return 'Firefox';
+            if (isEdge) return 'Edge';
+            if (isOpera) return 'Opera';
+            return 'Unknown';
+        }
+        
+        // 앱 버전 정보 추출 함수
+        function getAppVersion() {
+            // PWA의 경우 manifest에서 버전 정보를 가져올 수 있음
+            if ('serviceWorker' in navigator) {
+                return 'PWA';
+            }
+            return null;
+        }
+
         // iOS Safari 전용 XMLHttpRequest 방식 (fetch 실패 시 대체)
         function sendTokenToServerWithXHR(token) {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
-            const requestData = {
+            const deviceInfo = {
                 token: token,
-                name: isIOS ? 'iOS Safari' : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
+                name: isIOS ? (isStandalone ? 'iOS PWA' : 'iOS Safari') : (navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Web Browser'),
                 platform: isIOS ? 'ios' : 'web',
-                user_agent: navigator.userAgent
+                user_agent: navigator.userAgent,
+                device_type: isIOS ? 'mobile' : (navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'),
+                browser: getBrowserInfo(),
+                app_version: getAppVersion()
             };
             
             const xhr = new XMLHttpRequest();
@@ -219,16 +287,22 @@
                     if (xhr.status === 200) {
                         try {
                             const data = JSON.parse(xhr.responseText);
+                            console.log('XHR FCM registration response:', data);
                             
                             if (isIOS && isSafari) {
-                                showNotificationMessage('✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!', 'success');
+                                const message = isStandalone ? 
+                                    '✅ iOS PWA 모드에서 푸시 알림이 설정되었습니다!' :
+                                    '✅ iOS Safari에서 푸시 알림이 설정되었습니다!';
+                                showNotificationMessage(message, 'success');
                             } else {
                                 showNotificationMessage('✅ 푸시 알림이 설정되었습니다!', 'success');
                             }
                         } catch (e) {
+                            console.error('XHR response parsing error:', e);
                             showNotificationMessage('❌ 서버 응답을 처리할 수 없습니다.', 'error');
                         }
                     } else {
+                        console.error('XHR error status:', xhr.status);
                         if (isIOS && isSafari) {
                             showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
                         } else {
@@ -239,6 +313,7 @@
             };
             
             xhr.onerror = function() {
+                console.error('XHR network error');
                 if (isIOS && isSafari) {
                     showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
                 } else {
@@ -247,8 +322,9 @@
             };
             
             try {
-                xhr.send(JSON.stringify(requestData));
+                xhr.send(JSON.stringify(deviceInfo));
             } catch (e) {
+                console.error('XHR send error:', e);
                 if (isIOS && isSafari) {
                     showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 지원되지 않습니다.', 'warning');
                 } else {
@@ -274,39 +350,49 @@
             return cookieValue;
         }
         
-        // iOS Safari PWA 알림 권한 요청
+        // iOS Safari PWA 알림 권한 요청 (개선된 버전)
         async function checkIOSPWANotification() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
             const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
             
             if (isIOS && isSafari) {
-                // 웹 푸시 지원 확인
-                const pushSupport = await checkWebPushSupport();
+                console.log('[iOS Safari] 알림 권한 확인 중...');
+                console.log('[iOS Safari] PWA 모드:', isStandalone);
+                console.log('[iOS Safari] 현재 권한:', Notification.permission);
                 
-                if (pushSupport.supported && isStandalone) {
-                    // PWA 모드에서 푸시 지원됨
-                    if (Notification.permission === 'default') {
-                        // 5초 후 알림 권한 요청
-                        setTimeout(() => {
-                            if (Notification.permission === 'default') {
-                                showNotificationPermissionModal();
-                            }
-                        }, 5000);
-                    } else if (Notification.permission === 'granted' && !fcmTokenRegistered) {
-                        // 권한이 있고 토큰이 등록되지 않았으면 등록 시도
-                        setTimeout(() => {
-                            if (!fcmTokenRegistered) {
-                                handleIOSFCMRegistration(pushSupport.registration);
-                            }
-                        }, 2000);
+                // 이미 권한을 요청했는지 확인 (localStorage 사용)
+                const hasRequestedPermission = localStorage.getItem('notification_permission_requested');
+                
+                if (Notification.permission === 'default' && !hasRequestedPermission) {
+                    console.log('[iOS Safari] 알림 권한 요청 준비...');
+                    
+                    // 사용자가 페이지를 충분히 둘러본 후 권한 요청 (5초)
+                    setTimeout(() => {
+                        if (Notification.permission === 'default' && !hasRequestedPermission) {
+                            console.log('[iOS Safari] 알림 권한 모달 표시');
+                            showNotificationPermissionModal();
+                            localStorage.setItem('notification_permission_requested', 'true');
+                        }
+                    }, 5000);
+                    
+                } else if (Notification.permission === 'granted' && !fcmTokenRegistered) {
+                    console.log('[iOS Safari] 권한이 있음, 토큰 등록 시도');
+                    // 권한이 있고 토큰이 등록되지 않았으면 등록 시도
+                    setTimeout(() => {
+                        if (!fcmTokenRegistered) {
+                            multiAttemptIOSPushRegistration();
+                        }
+                    }, 2000);
+                    
+                } else if (Notification.permission === 'denied') {
+                    console.log('[iOS Safari] 권한이 거부됨');
+                    // 권한이 거부된 경우 한 번만 안내
+                    const hasShownDeniedMessage = localStorage.getItem('notification_permission_denied_message');
+                    if (!hasShownDeniedMessage) {
+                        showNotificationMessage('🔔 설정에서 알림 권한을 허용해주세요!', 'warning');
+                        localStorage.setItem('notification_permission_denied_message', 'true');
                     }
-                } else if (!pushSupport.supported && isStandalone) {
-                    // PWA 모드이지만 푸시 미지원
-                    showNotificationMessage('⚠️ iOS Safari에서는 웹 푸시 알림이 제한적입니다.', 'warning');
-                } else if (!isStandalone) {
-                    // 표준 Safari 모드
-                    showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
                 }
             }
         }
@@ -322,19 +408,46 @@
             modal.style.display = 'block';
         }
         
-        // 알림 권한 요청 모달 생성
+        // 알림 권한 요청 모달 생성 (개선된 버전)
         function createNotificationModal() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            // iOS Safari 상태에 따른 메시지 조정
+            let iosMessage = '';
+            if (isIOS && isSafari) {
+                if (isStandalone) {
+                    iosMessage = '✅ PWA 모드에서 푸시 알림이 지원됩니다!';
+                } else {
+                    iosMessage = '📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!';
+                }
+            }
+            
             const modalHTML = `
-                <div id="notificationPermissionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 9999;">
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);">
-                        <h3 style="color: #198754; margin-bottom: 20px;">🌊 알림 설정</h3>
-                        <p style="margin-bottom: 20px; line-height: 1.6; color: #666;">Blooming Swim에서 중요한 알림을 받아보세요!</p>
-                        <p style="font-size: 14px; color: #888; margin-bottom: 15px;">건강한 습관을 잊지 않도록 도와드릴게요.</p>
-                        <p style="font-size: 12px; color: #ff6b35; margin-bottom: 25px; font-weight: 600;">⚠️ iOS Safari에서는 PWA 모드에서만 푸시 알림이 작동합니다.</p>
-                        <div>
-                            <button id="requestNotificationBtn" style="background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin: 5px; cursor: pointer;">알림 허용하기</button>
-                            <button id="skipNotificationBtn" style="background: #6c757d; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin: 5px; cursor: pointer;">나중에 하기</button>
+                <div id="notificationPermissionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 9999;">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4); border: 2px solid #198754;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">🔔</div>
+                        <h3 style="color: #198754; margin-bottom: 20px; font-size: 20px;">알림 설정</h3>
+                        <p style="margin-bottom: 20px; line-height: 1.6; color: #333; font-size: 16px;">Blooming Swim에서 중요한 알림을 받아보세요!</p>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">건강한 습관을 잊지 않도록 도와드릴게요.</p>
+                        
+                        ${isIOS && isSafari ? `
+                            <div style="background: ${isStandalone ? '#d4edda' : '#fff3cd'}; border: 1px solid ${isStandalone ? '#c3e6cb' : '#ffeaa7'}; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                                <p style="font-size: 12px; color: ${isStandalone ? '#155724' : '#856404'}; margin: 0; font-weight: 600;">${iosMessage}</p>
+                            </div>
+                        ` : ''}
+                        
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button id="requestNotificationBtn" style="background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white; border: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(25, 135, 84, 0.3);">🔔 알림 허용하기</button>
+                            <button id="skipNotificationBtn" style="background: #6c757d; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; font-size: 14px; cursor: pointer;">나중에 하기</button>
                         </div>
+                        
+                        ${isIOS && isSafari && !isStandalone ? `
+                            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                                <button id="pwaGuideBtn" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border: none; padding: 8px 20px; border-radius: 15px; font-size: 12px; cursor: pointer;">📱 PWA 설치 가이드</button>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -342,8 +455,16 @@
             
             // 버튼 이벤트 리스너 추가
             document.getElementById('requestNotificationBtn').addEventListener('click', async function() {
-                Notification.requestPermission().then(async function(permission) {
+                console.log('[iOS Safari] 알림 권한 요청 버튼 클릭');
+                
+                try {
+                    const permission = await Notification.requestPermission();
+                    console.log('[iOS Safari] 권한 요청 결과:', permission);
+                    
                     if (permission === 'granted') {
+                        console.log('[iOS Safari] 권한 허용됨, 푸시 등록 시도');
+                        showNotificationMessage('✅ 알림 권한이 허용되었습니다!', 'success');
+                        
                         // iOS Safari 특별 처리
                         const iosSupport = await detectIOSPushSupport();
                         
@@ -355,15 +476,6 @@
                             } else {
                                 handleIOSFCMRegistration(iosSupport.registration);
                             }
-                        } else if (iosSupport.reason === 'iOS Safari web push not supported') {
-                            // iOS Safari에서 푸시 미지원
-                            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                            if (!isStandalone) {
-                                showNotificationMessage('📱 홈 화면에 추가하고 PWA로 실행하면 푸시 알림을 받을 수 있습니다!', 'info');
-                            } else {
-                                // PWA 모드에서도 강제 시도
-                                await multiAttemptIOSPushRegistration();
-                            }
                         } else {
                             // 일반 브라우저 처리
                             const pushSupport = await checkWebPushSupport();
@@ -373,16 +485,62 @@
                                 showNotificationMessage('❌ 이 브라우저는 푸시 알림을 지원하지 않습니다.', 'error');
                             }
                         }
+                    } else if (permission === 'denied') {
+                        console.log('[iOS Safari] 권한 거부됨');
+                        showNotificationMessage('❌ 알림 권한이 거부되었습니다. 설정에서 허용해주세요.', 'error');
+                        localStorage.setItem('notification_permission_denied_message', 'true');
                     } else {
-                        showNotificationMessage('❌ 알림 권한이 거부되었습니다.', 'error');
+                        console.log('[iOS Safari] 권한 요청 취소됨');
+                        showNotificationMessage('ℹ️ 알림 권한 요청이 취소되었습니다.', 'info');
                     }
-                    hideNotificationPermissionModal();
-                });
+                } catch (error) {
+                    console.error('[iOS Safari] 권한 요청 중 오류:', error);
+                    showNotificationMessage('❌ 알림 권한 요청 중 오류가 발생했습니다.', 'error');
+                }
+                
+                hideNotificationPermissionModal();
             });
             
             document.getElementById('skipNotificationBtn').addEventListener('click', function() {
+                console.log('[iOS Safari] 알림 권한 요청 건너뜀');
                 hideNotificationPermissionModal();
             });
+            
+            // PWA 가이드 버튼 (iOS Safari 표준 모드에서만)
+            if (isIOS && isSafari && !isStandalone) {
+                const pwaGuideBtn = document.getElementById('pwaGuideBtn');
+                if (pwaGuideBtn) {
+                    pwaGuideBtn.addEventListener('click', function() {
+                        showPWAGuide();
+                        hideNotificationPermissionModal();
+                    });
+                }
+            }
+        }
+        
+        // PWA 설치 가이드 표시
+        function showPWAGuide() {
+            const guideHTML = `
+                <div id="pwaGuideModal" style="display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 9999;">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);">
+                        <div style="font-size: 48px; margin-bottom: 15px;">📱</div>
+                        <h3 style="color: #007bff; margin-bottom: 20px; font-size: 20px;">PWA 설치 가이드</h3>
+                        <div style="text-align: left; margin-bottom: 25px;">
+                            <p style="font-size: 14px; color: #333; margin-bottom: 15px; line-height: 1.6;">
+                                <strong>1.</strong> Safari 하단의 공유 버튼을 탭하세요<br>
+                                <strong>2.</strong> "홈 화면에 추가"를 선택하세요<br>
+                                <strong>3.</strong> "추가"를 탭하세요<br>
+                                <strong>4.</strong> 홈 화면에서 앱을 실행하세요
+                            </p>
+                            <p style="font-size: 12px; color: #666; margin: 0;">
+                                PWA 모드에서 실행하면 푸시 알림을 받을 수 있습니다!
+                            </p>
+                        </div>
+                        <button onclick="document.getElementById('pwaGuideModal').style.display='none'" style="background: #007bff; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; cursor: pointer;">확인</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', guideHTML);
         }
         
         // 모달 숨기기
@@ -393,8 +551,11 @@
             }
         }
         
-        // 페이지 로드 시 iOS PWA 알림 권한 확인
+        // 페이지 로드 시 iOS PWA 알림 권한 확인 (개선된 버전)
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('[페이지 로드] 알림 권한 확인 시작');
+            
+            // 즉시 알림 권한 확인
             checkIOSPWANotification();
             
             // iOS Safari에서 다중 시도 푸시 등록
@@ -402,6 +563,55 @@
             
             // FCM 토큰 등록 상태 확인 (디버깅용)
             checkFCMTokenStatus();
+            
+            // 사용자 상호작용 시 알림 권한 요청 (iOS Safari에서 더 효과적)
+            let userInteracted = false;
+            let interactionTimeout = null;
+            
+            const interactionEvents = ['click', 'scroll', 'touchstart', 'mousedown'];
+            interactionEvents.forEach(eventType => {
+                document.addEventListener(eventType, function() {
+                    if (!userInteracted) {
+                        userInteracted = true;
+                        
+                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+                        const hasRequestedPermission = localStorage.getItem('notification_permission_requested');
+                        
+                        if (isIOS && isSafari && Notification.permission === 'default' && !hasRequestedPermission) {
+                            console.log('[iOS Safari] 사용자 상호작용 후 알림 권한 요청');
+                            
+                            // 상호작용 후 2초 대기 후 권한 요청
+                            if (interactionTimeout) {
+                                clearTimeout(interactionTimeout);
+                            }
+                            interactionTimeout = setTimeout(() => {
+                                showNotificationPermissionModal();
+                                localStorage.setItem('notification_permission_requested', 'true');
+                            }, 2000);
+                        }
+                    }
+                }, { once: true });
+            });
+            
+            // 페이지 가시성 변경 감지 (탭 전환 시)
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+                    const hasRequestedPermission = localStorage.getItem('notification_permission_requested');
+                    
+                    if (isIOS && isSafari && Notification.permission === 'default' && !hasRequestedPermission) {
+                        console.log('[iOS Safari] 페이지 가시성 변경 후 권한 확인');
+                        setTimeout(() => {
+                            if (Notification.permission === 'default' && !hasRequestedPermission) {
+                                showNotificationPermissionModal();
+                                localStorage.setItem('notification_permission_requested', 'true');
+                            }
+                        }, 3000);
+                    }
+                }
+            });
         });
         
         // 웹 푸시 지원 확인 함수
@@ -770,6 +980,53 @@
         
         // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
         window.checkFCMDeviceStatus = checkFCMDeviceStatus;
+        
+        // iOS Safari 권한 재설정 함수
+        function resetIOSNotificationPermission() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            if (isIOS && isSafari) {
+                // localStorage에서 권한 요청 기록 삭제
+                localStorage.removeItem('notification_permission_requested');
+                localStorage.removeItem('notification_permission_denied_message');
+                
+                console.log('[iOS Safari] 권한 요청 기록이 재설정되었습니다.');
+                showNotificationMessage('🔄 알림 권한 요청이 재설정되었습니다. 페이지를 새로고침해주세요.', 'info');
+            }
+        }
+        
+        // 전역 함수로 등록 (브라우저 콘솔에서 호출 가능)
+        window.resetIOSNotificationPermission = resetIOSNotificationPermission;
+        
+        // iOS Safari 권한 상태 확인 함수
+        function checkIOSPermissionStatus() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            console.log('=== iOS Safari 권한 상태 확인 ===');
+            console.log('iOS 감지:', isIOS);
+            console.log('Safari 감지:', isSafari);
+            console.log('PWA 모드:', isStandalone);
+            console.log('알림 권한:', Notification.permission);
+            console.log('FCM 토큰 등록됨:', fcmTokenRegistered);
+            console.log('권한 요청 기록:', localStorage.getItem('notification_permission_requested'));
+            console.log('거부 메시지 표시됨:', localStorage.getItem('notification_permission_denied_message'));
+            
+            return {
+                isIOS,
+                isSafari,
+                isStandalone,
+                permission: Notification.permission,
+                fcmRegistered: fcmTokenRegistered,
+                hasRequested: localStorage.getItem('notification_permission_requested'),
+                hasShownDenied: localStorage.getItem('notification_permission_denied_message')
+            };
+        }
+        
+        // 전역 함수로 등록
+        window.checkIOSPermissionStatus = checkIOSPermissionStatus;
         
         // iOS Safari 전용 디버깅 함수
         window.debugIOSDataTransfer = function() {

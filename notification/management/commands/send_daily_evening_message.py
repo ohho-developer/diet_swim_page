@@ -40,22 +40,31 @@ class Command(BaseCommand):
 
             success_count = 0
             failure_count = 0
+            ios_success_count = 0
+            web_success_count = 0
             retry_users = []
 
             # 1차 알림 전송
             for user in users_to_notify:
                 try:
+                    # iOS 사용자 확인
+                    is_ios_user = any(device.is_ios_device() for device in user.fcm_devices.filter(active=True))
+                    
                     title = "오늘 하루 잘 보내셨나요?"
                     body = f"{user.username}님, 저녁 10시 알림입니다! 내일도 좋은 하루 되세요."
                     data = {"type": "daily_evening_message", "user_id": str(user.id)}
 
-                    self.stdout.write(f"Sending notification to {user.username}...")
+                    self.stdout.write(f"Sending notification to {user.username} (iOS: {is_ios_user})...")
                     
                     success = send_fcm_notification(user, title, body, data)
                     
                     if success:
                         self.stdout.write(self.style.SUCCESS(f'Successfully sent notification to {user.username}'))
                         success_count += 1
+                        if is_ios_user:
+                            ios_success_count += 1
+                        else:
+                            web_success_count += 1
                     else:
                         self.stdout.write(self.style.WARNING(f'Failed to send notification to {user.username} - will retry'))
                         retry_users.append(user)
@@ -81,17 +90,24 @@ class Command(BaseCommand):
                 still_failed = []
                 for user in retry_users:
                     try:
+                        # iOS 사용자 확인
+                        is_ios_user = any(device.is_ios_device() for device in user.fcm_devices.filter(active=True))
+                        
                         title = "오늘 하루 잘 보내셨나요? (재시도)"
                         body = f"{user.username}님, 저녁 10시 알림입니다! 내일도 좋은 하루 되세요."
                         data = {"type": "daily_evening_message", "user_id": str(user.id)}
 
-                        self.stdout.write(f"Retrying notification to {user.username} (attempt {attempt})...")
+                        self.stdout.write(f"Retrying notification to {user.username} (attempt {attempt}, iOS: {is_ios_user})...")
                         
                         success = send_fcm_notification(user, title, body, data)
                         
                         if success:
                             self.stdout.write(self.style.SUCCESS(f'Successfully sent retry notification to {user.username}'))
                             success_count += 1
+                            if is_ios_user:
+                                ios_success_count += 1
+                            else:
+                                web_success_count += 1
                         else:
                             self.stdout.write(self.style.WARNING(f'Retry failed for {user.username}'))
                             still_failed.append(user)
@@ -105,7 +121,8 @@ class Command(BaseCommand):
             # 최종 결과 출력
             self.stdout.write(self.style.SUCCESS(
                 f'Enhanced daily evening message sending complete.\n'
-                f'Success: {success_count}, Failed: {len(retry_users)}, '
+                f'Total Success: {success_count}, Failed: {len(retry_users)}, '
+                f'iOS Success: {ios_success_count}, Web Success: {web_success_count}, '
                 f'Total attempts: {success_count + failure_count + len(retry_users)}'
             ))
             

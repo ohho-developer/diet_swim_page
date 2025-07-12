@@ -116,13 +116,31 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     특정 사용자에게 FCM 푸시 알림을 보냅니다.
     백그라운드/앱이 꺼져있을 때도 받을 수 있는 실제 푸시 알림
     """
-    # Firebase Admin SDK 초기화 확인
+    # Firebase Admin SDK 초기화 확인 및 재시도
     try:
         import firebase_admin
         if not firebase_admin._apps:
-            print("[ERROR] Firebase Admin SDK not initialized")
-            # Firebase가 초기화되지 않으면 실패로 처리
-            return False
+            print("[ERROR] Firebase Admin SDK not initialized, attempting to initialize...")
+            # Firebase 초기화 시도
+            try:
+                from django.conf import settings
+                import base64
+                import json
+                
+                # 환경 변수에서 서비스 계정 키 가져오기
+                service_account_b64 = settings.FIREBASE_SERVICE_ACCOUNT_B64
+                if service_account_b64:
+                    service_account_info = json.loads(base64.b64decode(service_account_b64))
+                    firebase_admin.initialize_app(
+                        credential=firebase_admin.credentials.Certificate(service_account_info)
+                    )
+                    print("[SUCCESS] Firebase Admin SDK initialized successfully")
+                else:
+                    print("[ERROR] FIREBASE_SERVICE_ACCOUNT_B64 not found in settings")
+                    return False
+            except Exception as init_error:
+                print(f"[ERROR] Failed to initialize Firebase Admin SDK: {init_error}")
+                return False
     except ImportError:
         print("[ERROR] Firebase Admin SDK not available")
         return False
@@ -153,11 +171,11 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
         
         success_count = 0
         
-        # iOS 디바이스 처리
+        # iOS 디바이스 처리 (강화된 로직)
         if ios_devices:
             ios_tokens = [device.registration_id for device in ios_devices]
             try:
-                # iOS용 강화된 메시지
+                # iOS용 강화된 메시지 (cron job용 최적화)
                 ios_message = messaging.MulticastMessage(
                     notification=messaging.Notification(
                         title=title,
@@ -165,7 +183,7 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                     ),
                     data=payload_data,
                     tokens=ios_tokens,
-                    # iOS 전용 APNS 설정
+                    # iOS 전용 APNS 설정 (cron job용 강화)
                     apns=messaging.APNSConfig(
                         payload=messaging.APNSPayload(
                             aps=messaging.Aps(
@@ -177,17 +195,22 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                                 sound='default',
                                 # iOS에서 백그라운드 처리 개선
                                 content_available=True,
-                                mutable_content=True
+                                mutable_content=True,
+                                # cron job용 추가 설정
+                                category='DAILY_REMINDER',
+                                thread_id='blooming-swim-daily'
                             ),
                             # iOS에서 알림 클릭 시 앱 열기
                             custom_data={
                                 'url': 'https://bloomingswim.designusplus.com',
-                                'click_action': 'FLUTTER_NOTIFICATION_CLICK'
+                                'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+                                'notification_type': 'daily_reminder'
                             }
                         ),
                         headers={
                             'apns-priority': '10',  # 즉시 전송
-                            'apns-expiration': '0'   # 만료 없음
+                            'apns-expiration': '0',  # 만료 없음
+                            'apns-topic': 'com.bloomingswim.app'  # 앱 번들 ID
                         }
                     )
                 )
@@ -197,14 +220,42 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                 success_count += ios_success
                 print(f"[DEBUG] iOS push notification: {ios_success} successful, {len(ios_tokens) - ios_success} failed")
                 
-                # 실패한 iOS 토큰 비활성화
+                # 실패한 iOS 토큰 비활성화 및 로깅
                 for i, resp in enumerate(ios_response.responses):
                     if not resp.success:
-                        FCMDevice.objects.filter(registration_id=ios_tokens[i]).update(active=False)
-                        print(f"[DEBUG] iOS token deactivated: {ios_tokens[i][:20]}...")
+                        error_msg = str(resp.exception) if hasattr(resp, 'exception') else 'Unknown error'
+                        print(f"[DEBUG] iOS token failed: {ios_tokens[i][:20]}... - {error_msg}")
+                        
+                        # 특정 오류에 따른 처리
+                        if "InvalidRegistration" in error_msg or "NotRegistered" in error_msg:
+                            FCMDevice.objects.filter(registration_id=ios_tokens[i]).update(active=False)
+                            print(f"[DEBUG] iOS token deactivated: {ios_tokens[i][:20]}...")
+                        elif "Unregistered" in error_msg:
+                            # 토큰이 만료된 경우
+                            FCMDevice.objects.filter(registration_id=ios_tokens[i]).update(active=False)
+                            print(f"[DEBUG] iOS token expired and deactivated: {ios_tokens[i][:20]}...")
                 
             except Exception as e:
                 print(f"[DEBUG] iOS push notification failed: {e}")
+                # iOS 전용 오류 처리
+                if "InvalidArgument" in str(e):
+                    print("[DEBUG] iOS message format error, trying simplified format")
+                    # 단순화된 메시지로 재시도
+                    try:
+                        simple_ios_message = messaging.MulticastMessage(
+                            data={
+                                "title": title,
+                                "body": body,
+                                **{k: str(v) for k, v in payload_data.items()}
+                            },
+                            tokens=ios_tokens,
+                        )
+                        simple_response = messaging.send_each_for_multicast(simple_ios_message)
+                        simple_success = sum(1 for r in simple_response.responses if r.success)
+                        success_count += simple_success
+                        print(f"[DEBUG] Simplified iOS message: {simple_success} successful")
+                    except Exception as simple_error:
+                        print(f"[DEBUG] Simplified iOS message also failed: {simple_error}")
         
         # 웹 디바이스 처리
         if web_devices:
