@@ -10,4 +10,6 @@ urlpatterns = [
     # 인앱 알림 관련 URL
     path('in-app/', views.InAppNotificationView.as_view(), name='in_app_notifications'),
     path('in-app/mark-all-read/', views.MarkAllNotificationsReadView.as_view(), name='mark_all_read'),
+    # Cron job URL
+    path('cron/send-daily-message/', views.SendDailyMessageView.as_view(), name='send_daily_message'),
 ] 

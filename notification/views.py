@@ -161,6 +161,39 @@ class MarkAllNotificationsReadView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class SendDailyMessageView(APIView):
+    """Cron job을 위한 일일 알림 전송 뷰"""
+    
+    def post(self, request):
+        try:
+            from django.core.management import call_command
+            from django.contrib.auth import get_user_model
+            
+            User = get_user_model()
+            
+            # 활성 사용자 수 확인
+            active_users = User.objects.filter(is_active=True).count()
+            
+            if active_users == 0:
+                return Response({
+                    'message': 'No active users found',
+                    'users_count': 0
+                }, status=status.HTTP_200_OK)
+            
+            # management command 실행
+            call_command('send_daily_evening_message')
+            
+            return Response({
+                'message': 'Daily evening messages sent successfully',
+                'users_count': active_users
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 User = get_user_model()
 
 
