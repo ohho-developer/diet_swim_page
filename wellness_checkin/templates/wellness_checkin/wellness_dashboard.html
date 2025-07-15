@@ -168,6 +168,7 @@ wellnessQuestions.forEach(function(q, idx) {
                     tension: 0.2,
                     pointRadius: 2,
                     yAxisID: 'y',
+                    spanGaps: false,  // null 값에서 선을 연결하지 않음
                 },
                 {
                     label: '체중지수',
@@ -178,16 +179,31 @@ wellnessQuestions.forEach(function(q, idx) {
                     fill: false,
                     pointRadius: 2,
                     yAxisID: 'y2',
+                    spanGaps: false,  // null 값에서 선을 연결하지 않음
                 }
             ]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: true } },
+            plugins: { 
+                legend: { display: true },
+                tooltip: {
+                    filter: function(tooltipItem) {
+                        return tooltipItem.parsed.y !== null;
+                    }
+                }
+            },
             scales: {
                 x: { title: { display: true, text: '날짜' } },
                 y: { title: { display: true, text: '점수' }, min: 1, max: 5, position: 'left' },
                 y2: { title: { display: true, text: '체중지수' }, position: 'right', grid: { drawOnChartArea: false } }
+            },
+            elements: {
+                point: {
+                    radius: function(context) {
+                        return context.parsed.y === null ? 0 : 2;
+                    }
+                }
             }
         }
     });

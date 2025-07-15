@@ -30,28 +30,50 @@ def daily_checkin_input_view(request):
         weight = request.POST.get('morning_fasting_weight')
         responses = {}
         errors = []
+        
+        # 체중 유효성 검사 (먼저 체중 검사)
+        if not weight:
+            errors.append("체중을 입력해 주세요.")
+        else:
+            try:
+                weight = float(weight)
+                if weight <= 0:
+                    errors.append("체중은 0보다 큰 값이어야 합니다.")
+                elif weight < 10:
+                    errors.append("체중은 10kg 이상이어야 합니다. 올바른 값을 입력해 주세요.")
+                elif weight > 300:
+                    errors.append("체중은 300kg 이하여야 합니다. 올바른 값을 입력해 주세요.")
+            except ValueError:
+                errors.append("체중은 숫자여야 합니다 (예: 65.5).")
+                weight = None
+        
         # 각 문항에 대해 응답 추출 및 유효성 검사
         for q in questions:
             val = request.POST.get(q.question_key)
             if val is None or val == '':
-                errors.append(f"{q.question_text}에 응답해 주세요.")
+                errors.append(f"'{q.question_text}' 문항에 응답해 주세요.")
                 continue
             try:
                 score = int(val)
             except ValueError:
-                errors.append(f"{q.question_text}의 점수가 올바르지 않습니다.")
+                errors.append(f"'{q.question_text}' 문항의 점수가 올바르지 않습니다.")
                 continue
             if not (q.min_score <= score <= q.max_score):
-                errors.append(f"{q.question_text}의 점수는 {q.min_score}~{q.max_score} 사이여야 합니다.")
+                errors.append(f"'{q.question_text}' 문항의 점수는 {q.min_score}~{q.max_score} 사이여야 합니다.")
+                continue
             responses[q.question_key] = score
-        # 체중 유효성 검사
-        if not weight:
-            errors.append("아침 공복 체중을 입력해 주세요.")
-        else:
-            try:
-                weight = float(weight)
-            except ValueError:
-                errors.append("체중은 숫자여야 합니다.")
+        
+        # 모든 문항이 응답되었는지 확인
+        if len(responses) != len(questions):
+            missing_questions = []
+            for q in questions:
+                if q.question_key not in responses:
+                    missing_questions.append(q.question_text)
+            if missing_questions:
+                errors.append(f"다음 문항들에 응답해 주세요: {', '.join(missing_questions)}")
+        
+        # 중복 제출 방지는 이미 existing_checkin으로 처리됨 (업데이트 또는 생성)
+        
         if errors:
             for err in errors:
                 messages.error(request, err)
@@ -64,13 +86,13 @@ def daily_checkin_input_view(request):
                 'today': today,
             })
         # 저장 또는 수정
-        if existing_checkin:
-            existing_checkin.morning_fasting_weight = weight
-            existing_checkin.responses = responses
-            existing_checkin.save()
-            messages.success(request, "기록이 수정되었습니다!")
-        else:
-            try:
+        try:
+            if existing_checkin:
+                existing_checkin.morning_fasting_weight = weight
+                existing_checkin.responses = responses
+                existing_checkin.save()
+                messages.success(request, "기록이 수정되었습니다!")
+            else:
                 DailyCheckIn.objects.create(
                     user=user,
                     date=today,
@@ -78,8 +100,11 @@ def daily_checkin_input_view(request):
                     responses=responses
                 )
                 messages.success(request, "기록되었습니다!")
-            except IntegrityError:
-                messages.error(request, "이미 오늘의 기록이 존재합니다.")
+        except IntegrityError:
+            messages.error(request, "이미 오늘의 기록이 존재합니다. 페이지를 새로고침 후 다시 시도해 주세요.")
+        except Exception as e:
+            messages.error(request, f"저장 중 오류가 발생했습니다: {str(e)}")
+        
         return redirect('wellness_checkin:daily_checkin_input')
     # GET 요청: 기존 데이터 전달
     input_weight = existing_checkin.morning_fasting_weight if existing_checkin else ''
@@ -122,11 +147,12 @@ def wellness_dashboard_view(request):
     for c in checkins:
         for k in question_keys:
             val = c.responses.get(k)
-            # 새 질문이 추가된 경우 None 값을 0으로 처리하거나 제외
+            # 새 질문이 추가된 경우 None 값을 null로 처리하여 그래프 인덱스 일관성 유지
             if val is None:
-                # 새 질문이 추가된 경우 해당 날짜의 데이터는 제외
-                continue
-            wellness_data[k].append({'date': c.date.strftime('%Y-%m-%d'), 'score': val})
+                # 새 질문이 추가된 경우 해당 날짜의 데이터는 null로 처리
+                wellness_data[k].append({'date': c.date.strftime('%Y-%m-%d'), 'score': None})
+            else:
+                wellness_data[k].append({'date': c.date.strftime('%Y-%m-%d'), 'score': val})
     # 체중 변화 리스트 (그래프용)
     weight_data_weights = [c['weight'] for c in weight_data]
     # AI 인사이트: 최소 14개 이상 데이터일 때만 회귀분석
@@ -141,25 +167,26 @@ def wellness_dashboard_view(request):
     best_adj_r2 = None
     
     # 공통 회귀분석 함수 사용
-    best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2 = perform_regression_analysis(checkins, question_keys)
+    best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys = perform_regression_analysis(checkins, question_keys)
     
     if best_model is not None:
         coefs = best_coefs
-        # 영향력 큰 상위 5개 추출 (절댓값 기준)
+        # 실제로 회귀분석에 사용된 변수들만 처리
         coef_info = []
-        for i, k in enumerate(question_keys):
+        for i, k in enumerate(valid_question_keys):
+            original_idx = question_keys.index(k) if k in question_keys else None
             coef_info.append({
                 'key': k,
                 'text': question_texts[k],
                 'coef': coefs[i],
-                'pvalue': p_values[i],
+                'pvalue': p_values[original_idx] if original_idx is not None else None,
                 'badge': badge_labels.get(k, k.upper()),
                 'label': badge_labels.get(k, k.upper()),  # 그래프용 한글 약칭
                 'action_text': convert_coefficient_to_action_language(coefs[i], badge_labels.get(k, k.upper())),  # 행동 언어
             })
         # p값이 0.1 미만이고 계수가 음수인 것만 사용 (체중감소에 도움이 되는 요소만)
         # 양수 계수는 체중증가에 영향을 주는 부정적인 습관이므로 제외
-        coef_info = [c for c in coef_info if c['pvalue'] is not None and c['pvalue'] < 0.1 and c['coef'] < 0]
+        coef_info = [c for c in coef_info if c['pvalue'] is not None and c['pvalue'] < 0.2 and c['coef'] < 0]
         coef_info = sorted(coef_info, key=lambda x: abs(x['coef']), reverse=True)
         # 체중감소에 도움이 되는 요소들만 (음수 계수)
         positive = coef_info  # 체중감소에 도움이 되는 요소들
@@ -200,13 +227,14 @@ def wellness_dashboard_view(request):
     coef_map = {}
     pvalue_map = {}
     if ai_insight and p_values is not None:
-        # 모든 변수에 대한 회귀분석 결과를 coef_map에 포함
-        for i, k in enumerate(question_keys):
+        # 실제로 회귀분석에 사용된 변수들만 매핑
+        for i, k in enumerate(valid_question_keys):
+            original_idx = question_keys.index(k) if k in question_keys else None
             coef_map[k] = best_coefs[i]
-            pvalue_map[k] = p_values[i]
+            pvalue_map[k] = p_values[original_idx] if original_idx is not None else None
     
     def get_circle_color(coef, pvalue):
-        if coef is None or pvalue is None or pvalue >= 0.1 or coef > 0:
+        if coef is None or pvalue is None or pvalue >= 0.2 or coef > 0:
             # p값이 유의하지 않거나 양수 계수(체중증가 요소)는 회색으로 처리
             return "#cccccc"
         else:
@@ -231,29 +259,31 @@ def wellness_dashboard_view(request):
     causal_links_list = []
     causal_edges_vis = []
     try:
-        if checkins.count() > 15:
+        if checkins.count() >= len(question_keys) + 2:
             df_causal = pd.DataFrame([
                 {**c.responses} for c in checkins
             ])
             max_lag = 3
             causal_links = []
-            for a in df_causal.columns:
-                for b in df_causal.columns:
-                    if a == b:
-                        continue
-                    test_data = df_causal[[b, a]].dropna()
-                    if len(test_data) > max_lag + 2:
-                        try:
-                            try:
-                                granger_result = grangercausalitytests(test_data, maxlag=max_lag, verbose=False)
-                            except TypeError:
-                                granger_result = grangercausalitytests(test_data, maxlag=max_lag)
-                            pvals = [granger_result[lag][0]['ssr_ftest'][1] for lag in range(1, max_lag+1)]
-                            min_p = min(pvals)
-                            if min_p < 0.05:
-                                causal_links.append((a, b, min_p))
-                        except Exception as e:
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+            try:
+                for a in df_causal.columns:
+                    for b in df_causal.columns:
+                        if a == b:
                             continue
+                        test_data = df_causal[[b, a]].dropna()
+                        if len(test_data) > max_lag + 2:
+                            try:
+                                granger_result = grangercausalitytests(test_data, maxlag=max_lag)
+                                pvals = [granger_result[lag][0]['ssr_ftest'][1] for lag in range(1, max_lag+1)]
+                                min_p = min(pvals)
+                                if min_p < 0.05:
+                                    causal_links.append((a, b, min_p))
+                            except Exception as e:
+                                continue
+            finally:
+                sys.stdout = old_stdout
             for a, b, p in sorted(causal_links, key=lambda x: x[2]):
                 a_label = badge_labels.get(a, a.upper())
                 b_label = badge_labels.get(b, b.upper())
@@ -320,8 +350,12 @@ def wellness_dashboard_view(request):
     })
 
 def moving_average(arr, window=5):
-    s = pd.Series(arr, dtype=float)
-    return s.rolling(window=window, min_periods=1, center=True).mean().tolist()
+    # None 값을 NaN으로 변환하여 pandas가 올바르게 처리하도록 함
+    processed_arr = [None if x is None else x for x in arr]
+    s = pd.Series(processed_arr, dtype=float)
+    result = s.rolling(window=window, min_periods=1, center=True).mean().tolist()
+    # NaN을 None으로 변환하여 JSON 직렬화 시 null로 처리되도록 함
+    return [None if pd.isna(x) else x for x in result]
 
 def convert_coefficient_to_action_language(coef, badge_label):
     """회귀계수를 행동 언어로 변환 (체중감소에 도움이 되는 요소만)"""
@@ -368,11 +402,11 @@ def causal_analysis_api(request):
             coef_map = json.loads(coef_map) if coef_map.strip() else {}
         if isinstance(pvalue_map, str):
             pvalue_map = json.loads(pvalue_map) if pvalue_map.strip() else {}
-        if checkins.count() > 15:
+        if checkins.count() >= len(question_keys) + 2:
             df_causal = pd.DataFrame([
                 {**c.responses} for c in checkins
             ])
-            max_lag = 3
+            max_lag = 4
             causal_links = []
             old_stdout = sys.stdout
             sys.stdout = io.StringIO()
@@ -384,13 +418,10 @@ def causal_analysis_api(request):
                         test_data = df_causal[[b, a]].dropna()
                         if len(test_data) > max_lag + 2:
                             try:
-                                try:
-                                    granger_result = grangercausalitytests(test_data, maxlag=max_lag, verbose=False)
-                                except TypeError:
-                                    granger_result = grangercausalitytests(test_data, maxlag=max_lag)
+                                granger_result = grangercausalitytests(test_data, maxlag=max_lag)
                                 pvals = [granger_result[lag][0]['ssr_ftest'][1] for lag in range(1, max_lag+1)]
                                 min_p = min(pvals)
-                                if min_p < 0.05:
+                                if min_p < 0.1:
                                     causal_links.append((a, b, min_p))
                             except Exception as e:
                                 continue
@@ -417,7 +448,7 @@ def causal_analysis_api(request):
                     causal_nodes_set.add(edge['from'])
                     causal_nodes_set.add(edge['to'])
             def get_circle_color(coef, pvalue):
-                if coef is None or pvalue is None or pvalue >= 0.1 or coef > 0:
+                if coef is None or pvalue is None or pvalue >= 0.2 or coef > 0:
                     # p값이 유의하지 않거나 양수 계수(체중증가 요소)는 회색으로 처리
                     return "#cccccc"
                 else:
@@ -439,12 +470,41 @@ def causal_analysis_api(request):
             result['causal_edges_vis'] = causal_edges_vis
     return JsonResponse(result)
 
+def prepare_regression_data(checkins, question_keys):
+    """회귀분석을 위한 데이터 전처리 공통 함수"""
+    df = pd.DataFrame([
+        {'date': c.date, 'weight': c.morning_fasting_weight, **c.responses} for c in checkins
+    ])
+    
+    # 체중 데이터가 없는 행만 제거
+    df = df.dropna(subset=['weight'])
+    
+    # 독립변수 결측값 처리: 충분한 데이터가 있는 변수만 포함
+    min_data_threshold = max(7, len(df) // 3)  # 최소 7개 또는 전체의 1/3 이상
+    valid_question_keys = []
+    
+    for key in question_keys:
+        if key in df.columns:
+            # 해당 변수의 유효한 데이터 개수 확인
+            valid_count = df[key].notna().sum()
+            if valid_count >= min_data_threshold:
+                valid_question_keys.append(key)
+    
+    # 유효한 변수가 없으면 분석 불가
+    if not valid_question_keys:
+        return None, []
+    
+    # 유효한 변수만으로 데이터 필터링 (완전한 케이스만 사용)
+    df = df.dropna(subset=['weight'] + valid_question_keys)
+    
+    return df, valid_question_keys
+
 def perform_regression_analysis(checkins, question_keys):
     """회귀분석을 수행하고 결과를 반환하는 공통 함수"""
     # 최소 데이터 요구사항: 자유도가 최소 1 이상이 되도록
     min_required_data = len(question_keys) + 2  # 변수 수 + 2 (자유도 1 이상)
     if len(checkins) < min_required_data:
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, []
     
     max_lag = 7
     best_score = -np.inf
@@ -453,19 +513,28 @@ def perform_regression_analysis(checkins, question_keys):
     best_lag = 1
     best_r2 = None
     best_adj_r2 = None
+    best_valid_keys = []
     
     for lag in range(1, max_lag + 1):
         if len(checkins) <= lag or len(checkins) - lag < 5:
             continue
-        df = pd.DataFrame([
-            {'date': c.date, 'weight': c.morning_fasting_weight, **c.responses} for c in checkins
-        ])
-        X = df[question_keys][:-lag].values
-        y = df['weight'][lag:].values
+        
+        # 공통 데이터 전처리 함수 사용
+        df, valid_question_keys = prepare_regression_data(checkins, question_keys)
+        
+        if df is None or len(df) <= lag:
+            continue
+        
+        X = df[valid_question_keys][:-lag].to_numpy()
+        y = df['weight'][lag:].to_numpy()
         
         # 자유도 검증: 최소 자유도 1 이상 보장
-        if len(y) <= len(question_keys) + 1:
+        if len(y) <= len(valid_question_keys) + 1:
             continue  # 자유도가 0 이하인 경우 건너뛰기
+        
+        # 추가적인 NaN 값 검사
+        if np.any(np.isnan(X)) or np.any(np.isnan(y)):
+            continue
         
         model = LinearRegression()
         model.fit(X, y)
@@ -481,28 +550,39 @@ def perform_regression_analysis(checkins, question_keys):
             best_coefs = model.coef_
             best_r2 = r2
             best_adj_r2 = adj_r2
+            best_valid_keys = valid_question_keys
     
     if best_model is not None:
-        # p값 계산
-        df = pd.DataFrame([
-            {'date': c.date, 'weight': c.morning_fasting_weight, **c.responses} for c in checkins
-        ])
-        X = df[question_keys][:-best_lag].values
-        y = df['weight'][best_lag:].values
+        # p값 계산 - 동일한 데이터 전처리 함수 사용
+        df, valid_question_keys = prepare_regression_data(checkins, question_keys)
+        
+        if df is None or len(df) <= best_lag:
+            # 데이터가 부족한 경우 p값을 None으로 설정
+            p_values = np.array([None] * len(question_keys))
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
+        
+        X = df[valid_question_keys][:-best_lag].to_numpy()
+        y = df['weight'][best_lag:].to_numpy()
+        
+        # 추가적인 NaN 값 검사
+        if np.any(np.isnan(X)) or np.any(np.isnan(y)):
+            p_values = np.array([None] * len(question_keys))
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
+        
         y_pred = best_model.predict(X)
         residuals = y - y_pred
         # 자유도 계산
-        df = len(y) - len(question_keys) - 1
-        if df <= 0:
+        degrees_of_freedom = len(y) - len(valid_question_keys) - 1
+        if degrees_of_freedom <= 0:
             # 자유도가 0 이하인 경우 p값을 None으로 설정
             p_values = np.array([None] * len(question_keys))
-            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
         
-        mse = np.sum(residuals**2) / df
+        mse = np.sum(residuals**2) / degrees_of_freedom
         # MSE가 0인 경우 처리
         if mse <= 0:
             p_values = np.array([None] * len(question_keys))
-            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
         
         # 더 안전한 방법으로 표준오차 계산
         try:
@@ -529,9 +609,16 @@ def perform_regression_analysis(checkins, question_keys):
                 
                 # NaN 값 방지를 위한 추가 검증
                 try:
-                    p_values = 2 * (1 - stats.t.cdf(abs(t_b), df))
+                    p_values_raw = 2 * (1 - stats.t.cdf(abs(t_b), degrees_of_freedom))
                     # NaN 값 처리
-                    p_values = np.where(np.isnan(p_values), None, p_values)
+                    p_values_raw = np.where(np.isnan(p_values_raw), None, p_values_raw)
+                    
+                    # 원래 question_keys 순서대로 p값 배열 재구성
+                    p_values = np.array([None] * len(question_keys))
+                    for i, k in enumerate(valid_question_keys):
+                        if k in question_keys:
+                            original_idx = question_keys.index(k)
+                            p_values[original_idx] = p_values_raw[i]
                 except (ValueError, RuntimeWarning):
                     # 통계 계산 오류 시 p값을 None으로 설정
                     p_values = np.array([None] * len(question_keys))
@@ -539,6 +626,6 @@ def perform_regression_analysis(checkins, question_keys):
             # 선형대수 오류가 발생하면 p값을 None으로 설정
             p_values = np.array([None] * len(question_keys))
         
-        return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2
+        return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, best_valid_keys
     
-    return None, None, None, None, None, None
+    return None, None, None, None, None, None, []

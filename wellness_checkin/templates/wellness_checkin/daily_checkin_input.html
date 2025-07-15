@@ -14,22 +14,31 @@
     <h2 class="mb-2">데일리 웰니스 체크인</h2>
     <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
     {% if messages %}
-        <ul class="messages">
+        <div class="messages mb-3">
             {% for message in messages %}
-                <li class="{{ message.tags }}">{{ message }}</li>
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
             {% endfor %}
-        </ul>
+        </div>
     {% endif %}
+    <div class="validation-summary" id="validation-summary">
+        <strong>다음 항목들을 확인해 주세요:</strong>
+        <ul id="validation-errors">
+        </ul>
+    </div>
     <form id="checkin-form" method="post" autocomplete="off">
         {% csrf_token %}
         <div class="form-group mb-3">
-            <label for="morning_fasting_weight"><b>오늘 체중 (kg)</b></label>
-            <input type="number" step="0.01" min="0" class="form-control" id="morning_fasting_weight" name="morning_fasting_weight" required value="{{ input_weight }}">
+            <label for="morning_fasting_weight"><b>오늘 체중 (kg)</b> <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" min="10" max="300" class="form-control" id="morning_fasting_weight" name="morning_fasting_weight" required value="{{ input_weight }}" placeholder="예: 65.5">
+            <div class="invalid-feedback" id="weight-error">체중을 정확히 입력해주세요 (10~300kg 범위)</div>
         </div>
         <hr>
         {% for q in questions %}
         <div class="question-block mb-4" id="block-{{ q.question_key }}">
-            <div class="mb-1"><b>{{ q.question_text }}</b></div>
+            <div class="mb-1"><b>{{ q.question_text }}</b> <span class="text-danger">*</span></div>
             {% if q.guide_text %}
             <div class="text-muted mb-1" style="font-size:0.95em;">{{ q.guide_text }}</div>
             {% endif %}
@@ -42,7 +51,8 @@
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
-                <input type="hidden" name="{{ q.question_key }}" id="input-{{ q.question_key }}" value="{{ input_responses.q.question_key }}">
+                <input type="hidden" name="{{ q.question_key }}" id="input-{{ q.question_key }}" value="{{ input_responses.q.question_key }}" required>
+                <div class="invalid-feedback question-error" id="error-{{ q.question_key }}">이 문항에 응답해 주세요.</div>
             </div>
         </div>
         {% endfor %}
@@ -64,14 +74,88 @@
 .question-block {
     padding: 1rem 0.5rem 0.5rem 0.5rem;
     border-bottom: 1px solid #eee;
+    transition: all 0.3s ease;
+}
+.question-block.error {
+    border: 2px solid #dc3545;
+    border-radius: 8px;
+    background-color: #f8d7da;
+}
+.invalid-feedback {
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+.invalid-feedback.show {
+    display: block;
+}
+.form-control.is-invalid {
+    border-color: #dc3545;
+}
+.validation-summary {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    color: #721c24;
+    display: none;
+}
+.validation-summary.show {
+    display: block;
+}
+.validation-summary ul {
+    margin: 0;
+    padding-left: 1.5rem;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('checkin-form');
+    const weightInput = document.getElementById('morning_fasting_weight');
+    const submitBtn = document.getElementById('submit-btn');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const validationSummary = document.getElementById('validation-summary');
+    const validationErrors = document.getElementById('validation-errors');
+    
+    // 체중 입력 실시간 검증
+    weightInput.addEventListener('input', function() {
+        validateWeight();
+    });
+    
+    weightInput.addEventListener('blur', function() {
+        validateWeight();
+    });
+    
+    function validateWeight() {
+        const weight = parseFloat(weightInput.value);
+        const weightError = document.getElementById('weight-error');
+        
+        if (!weightInput.value) {
+            weightInput.classList.add('is-invalid');
+            weightError.classList.add('show');
+            weightError.textContent = '체중을 입력해 주세요.';
+            return false;
+        } else if (weight < 10 || weight > 300) {
+            weightInput.classList.add('is-invalid');
+            weightError.classList.add('show');
+            weightError.textContent = '체중은 10kg ~ 300kg 범위 내에서 입력해 주세요.';
+            return false;
+        } else {
+            weightInput.classList.remove('is-invalid');
+            weightError.classList.remove('show');
+            return true;
+        }
+    }
+    
     // 점수 버튼 클릭 시
     document.querySelectorAll('.score-btn-group').forEach(function(group) {
         const field = group.getAttribute('data-field');
+        const questionBlock = group.closest('.question-block');
+        
         group.querySelectorAll('.score-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 // 모든 버튼 selected 해제
@@ -79,47 +163,101 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.classList.add('selected');
                 // hidden input에 값 반영
                 document.getElementById('input-' + field).value = btn.getAttribute('data-score');
+                
+                // 에러 상태 제거
+                questionBlock.classList.remove('error');
+                document.getElementById('error-' + field).classList.remove('show');
+                
                 // 다음 문항으로 스크롤
                 const nextBlock = document.getElementById('block-' + getNextField(field));
                 if (nextBlock) {
-                    nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => {
+                        nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
                 }
             });
         });
     });
+    
     // 다음 문항 key 찾기
     function getNextField(currentField) {
         const fields = Array.from(document.querySelectorAll('.score-btn-group')).map(g => g.getAttribute('data-field'));
         const idx = fields.indexOf(currentField);
         return fields[idx+1];
     }
+    
     // 폼 제출 시 유효성 검사
-    document.getElementById('checkin-form').addEventListener('submit', function(e) {
-        let valid = true;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const errors = [];
+        let isValid = true;
+        let firstErrorElement = null;
+        
+        // 모든 에러 상태 초기화
+        document.querySelectorAll('.question-block').forEach(block => {
+            block.classList.remove('error');
+        });
+        document.querySelectorAll('.invalid-feedback').forEach(feedback => {
+            feedback.classList.remove('show');
+        });
+        validationSummary.classList.remove('show');
+        
+        // 체중 검증
+        if (!validateWeight()) {
+            isValid = false;
+            errors.push('체중을 올바르게 입력해 주세요.');
+            if (!firstErrorElement) firstErrorElement = weightInput;
+        }
+        
+        // 설문 응답 검증
         document.querySelectorAll('.score-btn-group').forEach(function(group) {
             const field = group.getAttribute('data-field');
             const val = document.getElementById('input-' + field).value;
+            const questionBlock = group.closest('.question-block');
+            const questionText = questionBlock.querySelector('b').textContent.replace(' *', '');
+            
             if (!val) {
-                valid = false;
-                group.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                group.classList.add('border', 'border-danger');
-                setTimeout(() => group.classList.remove('border', 'border-danger'), 1500);
+                isValid = false;
+                questionBlock.classList.add('error');
+                document.getElementById('error-' + field).classList.add('show');
+                errors.push(`"${questionText}" 문항에 응답해 주세요.`);
+                if (!firstErrorElement) firstErrorElement = questionBlock;
             }
         });
-        if (!valid) {
-            e.preventDefault();
-            alert('모든 문항에 응답해 주세요.');
+        
+        if (!isValid) {
+            // 에러 요약 표시
+            validationErrors.innerHTML = '';
+            errors.forEach(error => {
+                const li = document.createElement('li');
+                li.textContent = error;
+                validationErrors.appendChild(li);
+            });
+            validationSummary.classList.add('show');
+            
+            // 첫 번째 에러 항목으로 스크롤
+            if (firstErrorElement) {
+                firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
             return false;
         }
-        // 로딩 인디케이터
-        document.getElementById('submit-btn').disabled = true;
-        document.getElementById('loading-indicator').style.display = 'block';
+        
+        // 모든 검증 통과 시 제출
+        submitBtn.disabled = true;
+        submitBtn.textContent = '저장 중...';
+        loadingIndicator.style.display = 'block';
+        
+        // 실제 폼 제출
+        form.submit();
     });
+    
     // 기존 응답 selected 처리
     {% for q in questions %}
     {% if input_responses.q.question_key %}
-    const btn = document.querySelector('.score-btn[data-field="{{ q.question_key }}"][data-score="{{ input_responses.q.question_key }}"]');
-    if (btn) btn.classList.add('selected');
+    const btn{{ forloop.counter }} = document.querySelector('.score-btn[data-field="{{ q.question_key }}"][data-score="{{ input_responses.q.question_key }}"]');
+    if (btn{{ forloop.counter }}) btn{{ forloop.counter }}.classList.add('selected');
     document.getElementById('input-{{ q.question_key }}').value = '{{ input_responses.q.question_key }}';
     {% endif %}
     {% endfor %}

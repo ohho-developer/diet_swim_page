@@ -28,7 +28,10 @@ class SurveyQuestion(models.Model):
 class DailyCheckIn(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField()
-    morning_fasting_weight = models.FloatField()
+    morning_fasting_weight = models.FloatField(
+        validators=[MinValueValidator(10.0), MaxValueValidator(300.0)],
+        help_text="체중은 10kg ~ 300kg 범위 내에서 입력해 주세요."
+    )
     responses = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

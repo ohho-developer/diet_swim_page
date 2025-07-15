@@ -157,11 +157,6 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     if not selected_device:
         print(f"No valid device found for user: {user.username}")
         return False
-    
-    print(f"[DEBUG] Final selected device: {selected_device.name} ({selected_device.platform})")
-    print(f"[DEBUG] Device token: {selected_device.registration_id[:20]}...")
-    print(f"[DEBUG] User agent: {selected_device.user_agent[:100]}...")
-    
     # 단일 디바이스로 처리 (중복 방지)
     devices = [selected_device]
     
@@ -170,13 +165,8 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     import time
     
     message_id = hashlib.md5(f"{user.id}_{title}_{body}_{int(time.time())}".encode()).hexdigest()
-    print(f"[DEBUG] Message ID: {message_id}")
 
     registration_ids = [device.registration_id for device in devices]
-    print(f"[DEBUG] Sending FCM to user: {user.username}, registration_ids: {registration_ids}")
-    print(f"[DEBUG] Notification title: {title}, body: {body}")
-    print(f"[DEBUG] Device count: {len(devices)}")
-    print(f"[DEBUG] Device details: {[(d.name, d.platform, d.registration_id[:20] + '...') for d in devices]}")
 
     # data는 문자열-문자열 맵이어야 합니다.
     payload_data = data if data is not None else {}
@@ -244,7 +234,6 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                 ios_response = messaging.send_each_for_multicast(ios_message)
                 ios_success = sum(1 for r in ios_response.responses if r.success)
                 success_count += ios_success
-                print(f"[DEBUG] iOS push notification: {ios_success} successful, {len(ios_tokens) - ios_success} failed")
                 
                 # 실패한 iOS 토큰 비활성화 및 로깅
                 for i, resp in enumerate(ios_response.responses):
@@ -341,9 +330,6 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                 
             except Exception as e:
                 print(f"[DEBUG] Web push notification failed: {e}")
-
-        print(f"[DEBUG] Total success: {success_count} out of {len(registration_ids)}")
-        print(f"[DEBUG] FCM notification completed for user: {user.username}")
         return success_count > 0
 
     except Exception as e:
