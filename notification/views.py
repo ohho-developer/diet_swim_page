@@ -76,23 +76,18 @@ class FCMTokenRegisterView(APIView):
         if not is_test_token:
             # 토큰 길이 및 형식 검증
             if len(registration_id) < 100:
-                print("❌ ERROR: FCM token too short")
                 return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
             
             if len(registration_id) > 500:
-                print("❌ ERROR: FCM token too long")
                 return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
             
             # 토큰 형식 검증 (FCM 토큰은 보통 특정 패턴을 가짐)
             import re
             if not re.match(r'^[A-Za-z0-9:_-]+$', registration_id):
-                print("❌ ERROR: Invalid FCM token format")
                 return Response({'error': 'Invalid FCM token format.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            print(f"✅ Test token detected: {registration_id[:50]}...")
             # 테스트 토큰은 길이만 확인
             if len(registration_id) < 10:
-                print("❌ ERROR: Test token too short")
                 return Response({'error': 'Invalid test token format.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -127,7 +122,6 @@ class FCMTokenRegisterView(APIView):
             try:
                 fcm_device.full_clean()
             except Exception as validation_error:
-                print(f"❌ Validation error: {validation_error}")
                 return Response({'error': 'Invalid device data.'}, status=status.HTTP_400_BAD_REQUEST)
             
             # 사용자의 전체 FCM 디바이스 수 확인
@@ -146,10 +140,8 @@ class FCMTokenRegisterView(APIView):
                 'browser': browser_info
             }
             
-            print(f"✅ Response sent: {response_data}")
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
-            print(f"❌ ERROR registering FCM token: {e}")
             import traceback
             traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -203,20 +195,15 @@ class FCMTokenDeleteView(APIView):
         try:
             # 삭제 전 상태 확인
             before_count = FCMDevice.objects.filter(user=request.user, active=True).count()
-            print(f"Active devices before deletion: {before_count}")
             
             # 현재 사용자의 모든 FCM 디바이스 토큰을 비활성화
             updated_count = FCMDevice.objects.filter(user=request.user, active=True).update(active=False)
             
-            print(f"Devices deactivated: {updated_count}")
-            
             # 삭제 후 상태 확인
             after_count = FCMDevice.objects.filter(user=request.user, active=True).count()
-            print(f"Active devices after deletion: {after_count}")
             
             # 전체 디바이스 수 확인
             total_devices = FCMDevice.objects.filter(user=request.user).count()
-            print(f"Total devices: {total_devices}")
             
             return Response({
                 'message': f'FCM tokens deactivated successfully. Deactivated {updated_count} device(s).',
@@ -225,7 +212,6 @@ class FCMTokenDeleteView(APIView):
                 'active_devices_remaining': after_count
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            print(f"❌ ERROR in FCM Token Deletion: {e}")
             import traceback
             traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -323,25 +309,10 @@ class FCMDeviceStatusView(APIView):
             active_devices = devices.filter(active=True)
             inactive_devices = devices.filter(active=False)
             
-            print(f"Total devices: {devices.count()}")
-            print(f"Active devices: {active_devices.count()}")
-            print(f"Inactive devices: {inactive_devices.count()}")
-            
             # 플랫폼별 통계
             ios_devices = devices.filter(platform='ios')
             android_devices = devices.filter(platform='android')
             web_devices = devices.filter(platform='web')
-            
-            print(f"iOS devices: {ios_devices.count()}")
-            print(f"Android devices: {android_devices.count()}")
-            print(f"Web devices: {web_devices.count()}")
-            
-            # 각 디바이스 상세 정보
-            for device in devices:
-                print(f"Device {device.id}: {device.name} ({device.platform}) - Active: {device.active}")
-                print(f"  Created: {device.created_at}")
-                print(f"  Updated: {device.updated_at}")
-                print(f"  Token: {device.registration_id[:50]}..." if device.registration_id else "  Token: None")
             
             return Response({
                 'user': request.user.username,
@@ -369,7 +340,6 @@ class FCMDeviceStatusView(APIView):
                 ]
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            print(f"❌ ERROR in FCM Device Status Check: {e}")
             import traceback
             traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -394,7 +364,6 @@ class ScheduledNotificationTrigger(APIView):
         cron_secret = request.headers.get('X-Secret-Key')
         
         if not cron_secret or cron_secret != settings.CRON_SECRET_KEY:
-            print("[CRON] Invalid secret key - rejecting request")
             return Response({'error': 'Invalid cron secret'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
@@ -417,29 +386,22 @@ class ScheduledNotificationTrigger(APIView):
                     # iOS 사용자 확인
                     is_ios_user = any(device.is_ios_device() for device in user.fcm_devices.filter(active=True))
                     
-                    print(f"[CRON] Sending to {user.username} (iOS: {is_ios_user})")
-                    
                     if send_fcm_notification(user, title, body, data):
                         sent_count += 1
                         if is_ios_user:
                             ios_count += 1
                         else:
                             web_count += 1
-                        print(f"[CRON] Success: {user.username}")
                     else:
                         failed_count += 1
                         retry_users.append(user)
-                        print(f"[CRON] Failed: {user.username}")
                         
                 except Exception as e:
                     failed_count += 1
                     retry_users.append(user)
-                    print(f"[CRON] Error for {user.username}: {e}")
             
             # 최종 실패 수는 1차 시도에서 실패한 사용자 수
             final_failed = len(retry_users)
-            
-            print(f"[CRON] Final results - Success: {sent_count}, Failed: {final_failed}")
             
             return Response({
                 'message': 'Scheduled task executed successfully',

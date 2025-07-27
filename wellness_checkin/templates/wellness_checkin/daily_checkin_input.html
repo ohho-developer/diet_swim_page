@@ -8,7 +8,7 @@
             <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="{% url 'wellness_checkin:dashboard' %}">대시보드</a>
+            <a class="nav-link" href="{% url 'wellness_checkin:dashboard_loading' %}">대시보드</a>
         </li>
     </ul>
     <h2 class="mb-2">데일리 웰니스 체크인</h2>
@@ -31,7 +31,7 @@
     <form id="checkin-form" method="post" autocomplete="off">
         {% csrf_token %}
         <div class="form-group mb-3">
-            <label for="morning_fasting_weight"><b>오늘 체중 (kg)</b> <span class="text-danger">*</span></label>
+            <label for="morning_fasting_weight"><b>아침 공복 체중 (kg)</b> <span class="text-danger">*</span></label>
             <input type="number" step="0.01" min="10" max="300" class="form-control" id="morning_fasting_weight" name="morning_fasting_weight" required value="{{ input_weight }}" placeholder="예: 65.5">
             <div class="invalid-feedback" id="weight-error">체중을 정확히 입력해주세요 (10~300kg 범위)</div>
         </div>

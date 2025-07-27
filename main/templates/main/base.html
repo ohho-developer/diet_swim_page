@@ -111,7 +111,6 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/firebase-messaging-sw.js')
                 .then((registration) => {
-                    console.log('Service Worker registered with scope:', registration.scope);
                     // 푸시 알림 권한 요청 및 토큰 가져오기
                     if (!fcmTokenRegistered) {
                         requestPermissionAndGetToken(messaging, registration);
@@ -126,7 +125,6 @@
                 });
         } else {
             // Service Worker를 지원하지 않는 브라우저
-            console.log('Service Worker not supported, using vapidKey only');
             if (!fcmTokenRegistered) {
                 requestPermissionAndGetToken(messaging, null);
             }
@@ -137,12 +135,10 @@
         const processedMessages = new Set();
         
         onMessage(messaging, async (payload) => {
-            console.log('Message received in foreground. ', payload);
             
             // 중복 메시지 체크
             const messageId = payload.data?.message_id || payload.notification?.tag || 'default';
             if (processedMessages.has(messageId)) {
-                console.log('Duplicate message detected, skipping:', messageId);
                 return;
             }
             
@@ -152,8 +148,6 @@
                 const firstKey = processedMessages.values().next().value;
                 processedMessages.delete(firstKey);
             }
-            
-            console.log('Processing message:', messageId);
             
             let notificationTitle = '';
             let notificationOptions = {
@@ -180,7 +174,6 @@
                     );
                     
                     if (hasExistingNotification) {
-                        console.log('Notification already exists, skipping');
                         return;
                     }
                     
@@ -226,7 +219,6 @@
                                     sendTokenToServer(currentToken);
                                     fcmTokenRegistered = true;
                                 } else {
-                                    console.log('iOS Safari FCM 토큰이 null임');
                                     fcmTokenRegistrationInProgress = false;
                                 }
                             }).catch((err) => {
@@ -243,7 +235,6 @@
                                     sendTokenToServer(currentToken);
                                     fcmTokenRegistered = true;
                                 } else {
-                                    console.log('FCM 토큰이 null임');
                                     fcmTokenRegistrationInProgress = false;
                                 }
                             }).catch((err) => {
@@ -252,7 +243,6 @@
                             });
                         }
                     } else {
-                        console.log('권한 거부됨');
                         fcmTokenRegistrationInProgress = false;
                     }
                 }).catch((error) => {
@@ -346,7 +336,7 @@
                 return response.json();
             })
             .then(data => {
-                console.log('Device registered:', data);
+                // Device registration successful
             })
             .catch(error => {
                 console.error('FCM 토큰 전송 실패:', error);
@@ -478,7 +468,7 @@
                                         const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
                                         tokenOptions.serviceWorkerRegistration = registration;
                                     } catch (swError) {
-                                        console.log('Service Worker 등록 실패, vapidKey만 사용');
+                                        // Service Worker registration failed, using vapidKey only
                                     }
                                 }
                                 

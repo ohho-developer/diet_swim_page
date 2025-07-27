@@ -7,16 +7,11 @@
             <a class="nav-link" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:dashboard' %}">대시보드</a>
+            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:dashboard_loading' %}">대시보드</a>
         </li>
     </ul>
     <h2 class="mb-2">웰니스 대시보드</h2>
     <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
-    <div class="mb-4 text-center">
-        <a href="?period=14" class="btn btn-outline-primary btn-sm {% if period == 14 %}active{% endif %}">2주</a>
-        <a href="?period=28" class="btn btn-outline-primary btn-sm {% if period == 28 %}active{% endif %}">4주</a>
-        <a href="?period=all" class="btn btn-outline-primary btn-sm {% if period == 'all' %}active{% endif %}">전체</a>
-    </div>
     {% if no_data %}
         <div class="alert alert-info text-center">아직 기록된 데이터가 없습니다.<br>데일리 체크인을 먼저 입력해 주세요!</div>
     {% else %}
@@ -72,7 +67,7 @@
                 {% endif %}
                 {% if best_lag and best_adj_r2 %}
                 <div class="alert alert-secondary mb-2" style="font-size: 0.9em;">
-                    당신의 생활습관은 <b>약 {{ best_lag }}일 후</b>에 체중에 반영되는 경향이 있어요.<br>
+                    당신의 생활습관은 <b>약 {{ best_lag|add:1 }}일 후</b>에 체중에 반영되는 경향이 있어요.<br>
                 </div>
                 {% endif %}
                 <canvas id="insightChart" height="120"></canvas>
@@ -242,9 +237,7 @@ fetch("/wellness/causal_analysis/", {
     })
 })
 .then(response => response.json())
-.then(data => {
-    console.log("edges:", data.causal_edges_vis.length, data.causal_edges_vis);
-    console.log("nodes:", data.causal_nodes_vis.length, data.causal_nodes_vis);
+            .then(data => {
     document.getElementById('causal-loading').style.display = 'none';
     if (data.causal_nodes_vis.length > 0 && data.causal_edges_vis.length > 0) {
         document.getElementById('causal-graph').style.display = '';

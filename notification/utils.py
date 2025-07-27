@@ -25,10 +25,8 @@ def send_in_app_notification(user, title, body, data=None):
             data=data or {},
             notification_type='daily_reminder'
         )
-        print(f"[DEBUG] In-app notification saved for {user.username}")
         return True
     except Exception as e:
-        print(f"[DEBUG] In-app notification failed: {e}")
         return False
 
 def send_ios_notification(user, title, body, data=None):
@@ -68,10 +66,9 @@ def send_ios_notification(user, title, body, data=None):
             response = messaging.send_each_for_multicast(message)
             ios_success = sum(1 for r in response.responses if r.success)
             success_count += ios_success
-            print(f"[DEBUG] iOS push notification: {ios_success} successful")
             
         except Exception as e:
-            print(f"[DEBUG] iOS push notification failed: {e}")
+            pass
     
     return success_count > 0
 
@@ -88,7 +85,6 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     try:
         import firebase_admin
         if not firebase_admin._apps:
-            print("[ERROR] Firebase Admin SDK not initialized, attempting to initialize...")
             # Firebase 초기화 시도
             try:
                 from django.conf import settings
@@ -102,21 +98,16 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                     firebase_admin.initialize_app(
                         credential=firebase_admin.credentials.Certificate(service_account_info)
                     )
-                    print("[SUCCESS] Firebase Admin SDK initialized successfully")
                 else:
-                    print("[ERROR] FIREBASE_SERVICE_ACCOUNT_B64 not found in settings")
                     return False
             except Exception as init_error:
-                print(f"[ERROR] Failed to initialize Firebase Admin SDK: {init_error}")
                 return False
     except ImportError:
-        print("[ERROR] Firebase Admin SDK not available")
         return False
     
     # 해당 사용자의 활성화된 모든 FCM 디바이스 토큰을 가져옵니다.
     devices = FCMDevice.objects.filter(user=user, active=True)
     if not devices:
-        print(f"No active FCM devices found for user: {user.username}")
         # FCM 디바이스가 없으면 실패로 처리
         return False
     
@@ -131,7 +122,6 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     
     if pwa_devices.exists():
         selected_device = pwa_devices.first()
-        print(f"[DEBUG] Selected PWA device for user: {user.username} - {selected_device.name}")
     else:
         # 2. 일반 브라우저 디바이스 찾기 (PWA가 없는 경우)
         browser_devices = devices.filter(
@@ -142,20 +132,16 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
         
         if browser_devices.exists():
             selected_device = browser_devices.first()
-            print(f"[DEBUG] Selected browser device for user: {user.username} - {selected_device.name}")
         else:
             # 3. 웹이 아닌 다른 플랫폼 (iOS, Android)
             other_devices = devices.exclude(platform='web').order_by('-updated_at')
             if other_devices.exists():
                 selected_device = other_devices.first()
-                print(f"[DEBUG] Selected other platform device for user: {user.username} - {selected_device.name} ({selected_device.platform})")
             else:
                 # 4. 마지막 수단: 가장 최근 업데이트된 디바이스
                 selected_device = devices.order_by('-updated_at').first()
-                print(f"[DEBUG] Selected latest device for user: {user.username} - {selected_device.name}")
     
     if not selected_device:
-        print(f"No valid device found for user: {user.username}")
         return False
     # 단일 디바이스로 처리 (중복 방지)
     devices = [selected_device]
@@ -178,7 +164,7 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
     payload_data['message_id'] = message_id
     payload_data['timestamp'] = str(int(time.time()))
 
-    print(f"[DEBUG] Payload data: {payload_data}")
+
 
     try:
         # iOS 사용자 특별 처리
@@ -244,17 +230,13 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                         # 특정 오류에 따른 처리
                         if "InvalidRegistration" in error_msg or "NotRegistered" in error_msg:
                             FCMDevice.objects.filter(registration_id=ios_tokens[i]).update(active=False)
-                            print(f"[DEBUG] iOS token deactivated: {ios_tokens[i][:20]}...")
                         elif "Unregistered" in error_msg:
                             # 토큰이 만료된 경우
                             FCMDevice.objects.filter(registration_id=ios_tokens[i]).update(active=False)
-                            print(f"[DEBUG] iOS token expired and deactivated: {ios_tokens[i][:20]}...")
                 
             except Exception as e:
-                print(f"[DEBUG] iOS push notification failed: {e}")
                 # iOS 전용 오류 처리
                 if "InvalidArgument" in str(e):
-                    print("[DEBUG] iOS message format error, trying simplified format")
                     # 단순화된 메시지로 재시도
                     try:
                         simple_ios_message = messaging.MulticastMessage(
@@ -268,9 +250,8 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                         simple_response = messaging.send_each_for_multicast(simple_ios_message)
                         simple_success = sum(1 for r in simple_response.responses if r.success)
                         success_count += simple_success
-                        print(f"[DEBUG] Simplified iOS message: {simple_success} successful")
                     except Exception as simple_error:
-                        print(f"[DEBUG] Simplified iOS message also failed: {simple_error}")
+                        pass
         
         # 웹 디바이스 처리
         if web_devices:
@@ -320,20 +301,17 @@ def send_fcm_notification(user, title, body, data=None, data_only=False):
                 web_response = messaging.send_each_for_multicast(web_message)
                 web_success = sum(1 for r in web_response.responses if r.success)
                 success_count += web_success
-                print(f"[DEBUG] Web push notification: {web_success} successful, {len(web_tokens) - web_success} failed")
                 
                 # 실패한 웹 토큰 비활성화
                 for i, resp in enumerate(web_response.responses):
                     if not resp.success:
                         FCMDevice.objects.filter(registration_id=web_tokens[i]).update(active=False)
-                        print(f"[DEBUG] Web token deactivated: {web_tokens[i][:20]}...")
                 
             except Exception as e:
-                print(f"[DEBUG] Web push notification failed: {e}")
+                pass
         return success_count > 0
 
     except Exception as e:
-        print(f"[ERROR] Error sending FCM notification to {user.username}: {e}")
         return False
 
 def send_fcm_notification_to_topic(topic, title, body, data=None):
@@ -344,10 +322,8 @@ def send_fcm_notification_to_topic(topic, title, body, data=None):
     try:
         import firebase_admin
         if not firebase_admin._apps:
-            print("[ERROR] Firebase Admin SDK not initialized")
             return False
     except ImportError:
-        print("[ERROR] Firebase Admin SDK not available")
         return False
     
     payload_data = data if data is not None else {}
@@ -364,8 +340,6 @@ def send_fcm_notification_to_topic(topic, title, body, data=None):
 
     try:
         response = messaging.send(message)
-        print(f"Successfully sent message to topic {topic}: {response}")
         return True
     except Exception as e:
-        print(f"Error sending FCM notification to topic {topic}: {e}")
         return False

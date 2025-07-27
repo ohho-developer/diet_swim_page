@@ -118,20 +118,18 @@ def daily_checkin_input_view(request):
     })
 
 @login_required
+def wellness_dashboard_loading_view(request):
+    """대시보드 로딩 화면을 보여주는 뷰"""
+    return render(request, 'wellness_checkin/dashboard_loading.html')
+
+@login_required
 def wellness_dashboard_view(request):
     user = request.user
-    # 기간 필터링: 기본 28일(4주), ?period=14 등 지원
-    try:
-        period = int(request.GET.get('period', 28))
-    except ValueError:
-        period = 28
     today = timezone.localdate()
-    start_date = today - timezone.timedelta(days=period-1)
-    checkins = DailyCheckIn.objects.filter(user=user, date__gte=start_date, date__lte=today).order_by('date')
+    checkins = DailyCheckIn.objects.filter(user=user).order_by('date')
     if not checkins.exists():
         return render(request, 'wellness_checkin/wellness_dashboard.html', {
             'no_data': True,
-            'period': period,
             'today': today,
         })
     # 체중 변화 추이 데이터
@@ -337,7 +335,7 @@ def wellness_dashboard_view(request):
         'ai_insight_data_positive': ai_insight_data_positive,
         'ai_insight_data_negative': ai_insight_data_negative,
         'insight_message': insight_message,
-        'period': period,
+        'period': 28, # 기간 필터링 제거
         'today': today,
         'no_data': False,
         'model_confidence': model_confidence,
@@ -394,6 +392,7 @@ def causal_analysis_api(request):
     today = timezone.localdate()
     checkins = DailyCheckIn.objects.filter(user=user).order_by('date')
     result = {'causal_links_list': [], 'causal_nodes_vis': [], 'causal_edges_vis': []}
+    
     if request.method == "POST":
         data = json.loads(request.body)
         coef_map = data.get("coef_map", {})
@@ -402,10 +401,13 @@ def causal_analysis_api(request):
             coef_map = json.loads(coef_map) if coef_map.strip() else {}
         if isinstance(pvalue_map, str):
             pvalue_map = json.loads(pvalue_map) if pvalue_map.strip() else {}
-        if checkins.count() >= len(question_keys) + 2:
-            df_causal = pd.DataFrame([
-                {**c.responses} for c in checkins
-            ])
+        
+        # 회귀분석과 동일한 데이터 전처리 적용
+        df, valid_question_keys = prepare_regression_data(checkins, question_keys)
+        
+        if df is not None and len(df) >= len(valid_question_keys) + 2:
+            # 유효한 변수만으로 인과분석 수행
+            df_causal = df[valid_question_keys]
             max_lag = 4
             causal_links = []
             old_stdout = sys.stdout
@@ -441,7 +443,7 @@ def causal_analysis_api(request):
                     'width': 1,
                 })
             if not causal_edges_vis:
-                causal_nodes_set = set(question_keys)
+                causal_nodes_set = set(valid_question_keys)
             else:
                 causal_nodes_set = set()
                 for edge in causal_edges_vis:
@@ -553,36 +555,36 @@ def perform_regression_analysis(checkins, question_keys):
             best_valid_keys = valid_question_keys
     
     if best_model is not None:
-        # p값 계산 - 동일한 데이터 전처리 함수 사용
-        df, valid_question_keys = prepare_regression_data(checkins, question_keys)
+        # p값 계산 - 이미 찾은 best_valid_keys 사용
+        df, _ = prepare_regression_data(checkins, question_keys)
         
         if df is None or len(df) <= best_lag:
             # 데이터가 부족한 경우 p값을 None으로 설정
             p_values = np.array([None] * len(question_keys))
-            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, best_valid_keys
         
-        X = df[valid_question_keys][:-best_lag].to_numpy()
+        X = df[best_valid_keys][:-best_lag].to_numpy()
         y = df['weight'][best_lag:].to_numpy()
         
         # 추가적인 NaN 값 검사
         if np.any(np.isnan(X)) or np.any(np.isnan(y)):
             p_values = np.array([None] * len(question_keys))
-            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, best_valid_keys
         
         y_pred = best_model.predict(X)
         residuals = y - y_pred
         # 자유도 계산
-        degrees_of_freedom = len(y) - len(valid_question_keys) - 1
+        degrees_of_freedom = len(y) - len(best_valid_keys) - 1
         if degrees_of_freedom <= 0:
             # 자유도가 0 이하인 경우 p값을 None으로 설정
             p_values = np.array([None] * len(question_keys))
-            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, best_valid_keys
         
         mse = np.sum(residuals**2) / degrees_of_freedom
         # MSE가 0인 경우 처리
         if mse <= 0:
             p_values = np.array([None] * len(question_keys))
-            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys
+            return best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, best_valid_keys
         
         # 더 안전한 방법으로 표준오차 계산
         try:
@@ -615,7 +617,7 @@ def perform_regression_analysis(checkins, question_keys):
                     
                     # 원래 question_keys 순서대로 p값 배열 재구성
                     p_values = np.array([None] * len(question_keys))
-                    for i, k in enumerate(valid_question_keys):
+                    for i, k in enumerate(best_valid_keys):
                         if k in question_keys:
                             original_idx = question_keys.index(k)
                             p_values[original_idx] = p_values_raw[i]

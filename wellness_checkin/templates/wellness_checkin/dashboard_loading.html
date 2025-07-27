@@ -1,0 +1,83 @@
+{% extends 'main/base.html' %}
+{% load static %}
+{% block content %}
+<div class="container" style="max-width:900px; margin:0 auto; padding:2rem 0;">
+    <ul class="nav nav-tabs mb-4 justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:dashboard_loading' %}">대시보드</a>
+        </li>
+    </ul>
+    
+    <!-- 로딩 화면 -->
+    <div class="text-center" style="padding: 4rem 0;">
+        <div class="mb-4">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        <h3 class="mb-3">웰니스 대시보드 로딩 중</h3>
+        <p class="text-muted mb-4">데이터를 분석하고 그래프를 준비하고 있어요...</p>
+        
+        <!-- 진행률 표시 -->
+        <div class="progress mb-3" style="max-width: 300px; margin: 0 auto;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" 
+                 style="width: 0%" 
+                 id="loading-progress">0%</div>
+        </div>
+        
+        <!-- 로딩 단계 표시 -->
+        <div class="text-muted" style="font-size: 0.9em;">
+            <div id="loading-step">데이터 확인 중...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 로딩 진행률 시뮬레이션
+let progress = 0;
+const progressBar = document.getElementById('loading-progress');
+const loadingStep = document.getElementById('loading-step');
+const steps = [
+    '데이터 확인 중...',
+    '체중 변화 분석 중...',
+    '웰니스 패턴 분석 중...',
+    'AI 인사이트 생성 중...',
+    '그래프 준비 중...',
+    '완료!'
+];
+
+function updateProgress() {
+    if (progress < 100) {
+        progress += Math.random() * 15 + 5; // 5-20%씩 증가
+        if (progress > 100) progress = 100;
+        
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = Math.round(progress) + '%';
+        
+        // 단계별 메시지 업데이트
+        const stepIndex = Math.floor((progress / 100) * (steps.length - 1));
+        if (stepIndex < steps.length) {
+            loadingStep.textContent = steps[stepIndex];
+        }
+        
+        if (progress < 100) {
+            setTimeout(updateProgress, 300 + Math.random() * 500);
+        } else {
+            // 로딩 완료 후 대시보드로 이동
+            setTimeout(() => {
+                window.location.href = "{% url 'wellness_checkin:dashboard' %}";
+            }, 500);
+        }
+    }
+}
+
+// 페이지 로드 시 진행률 시작
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(updateProgress, 500);
+});
+</script>
+{% endblock %} 

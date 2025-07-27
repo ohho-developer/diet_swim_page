@@ -38,12 +38,7 @@ DEBUG = env.bool("DEBUG", default=os.environ.get("DEBUG", "True").lower() == "tr
 
 # 디버그: 환경변수 확인 (배포 시 확인용)
 if not DEBUG:
-    print(f"Production Environment Variables:")
-    print(f"SECRET_KEY: {'SET' if os.environ.get('SECRET_KEY') else 'NOT SET'}")
-    print(f"DB_NAME: {os.environ.get('DB_NAME', 'NOT SET')}")
-    print(f"DB_HOST: {os.environ.get('DB_HOST', 'NOT SET')}")
-    print(f"ALLOWED_HOSTS: {os.environ.get('ALLOWED_HOSTS', 'NOT SET')}")
-    print(f"FIREBASE_SERVICE_ACCOUNT_KEY: {'SET' if os.environ.get('FIREBASE_SERVICE_ACCOUNT_KEY') else 'NOT SET'}")
+    pass
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=os.environ.get("ALLOWED_HOSTS", "").split(",") if os.environ.get("ALLOWED_HOSTS") else [])
 CSRF_TRUSTED_ORIGINS = ['https://port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app','https://bloomingswim.designusplus.com']
@@ -220,10 +215,8 @@ if not firebase_admin._apps: # 이미 초기화된 앱이 없는 경우에만 �
                 raise ValueError("Project ID not found in Firebase credentials JSON.")
 
             firebase_admin.initialize_app(cred, {'projectId': project_id})
-            print(f"Firebase Admin SDK initialized successfully from environment variable for project ID: {project_id}!")
         except Exception as e:
             # 환경 변수를 통한 초기화 실패 시 심각한 오류로 처리 (배포 시 중요)
-            print(f"CRITICAL ERROR: Failed to initialize Firebase Admin SDK from environment variable: {e}")
             raise # 이 줄은 배포 환경에서 초기화 실패 시 서버가 시작되지 않도록 합니다.
 
     # 환경 변수가 없고 DEBUG 모드일 경우 파일 사용 (로컬 개발용)
@@ -241,14 +234,11 @@ if not firebase_admin._apps: # 이미 초기화된 앱이 없는 경우에만 �
                         raise ValueError("Project ID not found in Firebase credentials file.")
 
                 firebase_admin.initialize_app(cred, {'projectId': file_project_id})
-                print(f"Firebase Admin SDK initialized successfully from file (dev mode) for project ID: {file_project_id}!")
             except Exception as e:
-                print(f"CRITICAL ERROR: Failed to initialize Firebase Admin SDK from file (dev mode): {e}")
-                # raise # 개발 중에는 raise 대신 경고만 주고 넘어가도 됩니다.
+                pass # 개발 중에는 raise 대신 경고만 주고 넘어가도 됩니다.
         else:
-            print("WARNING: Firebase credentials file not found for local development. Firebase Admin SDK not initialized.")
+            pass
     else: # 환경 변수도 없고 DEBUG도 False일 때 (프로덕션 환경에서 발생 시 문제)
-        print("CRITICAL ERROR: Firebase Admin SDK could not be initialized. Neither environment variable nor local file found.")
         raise # 배포 환경에서는 이 상황을 허용하지 않음
 
 SITE_ID = 1
