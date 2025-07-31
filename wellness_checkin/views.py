@@ -110,10 +110,13 @@ def wellness_dashboard_view(request):
     user = request.user
     context = services.get_dashboard_data(user)
 
-    if context.get('ai_insight') and context['ai_insight'].get('positive'):
-        context['ai_insight_labels_positive'] = [item['badge'] for item in context['ai_insight']['positive']]
-        context['ai_insight_data_positive'] = [item['coef'] for item in context['ai_insight']['positive']]
-    
+    # Process analysis results for each category to be used in the template
+    if context.get('category_analysis_results'):
+        for category, results in context['category_analysis_results'].items():
+            if results.get('ai_insight') and results['ai_insight'].get('positive'):
+                results['insight_labels'] = [item['badge'] for item in results['ai_insight']['positive']]
+                results['insight_data'] = [item['coef'] for item in results['ai_insight']['positive']]
+
     return render(request, 'wellness_checkin/wellness_dashboard.html', context)
 
 @csrf_exempt

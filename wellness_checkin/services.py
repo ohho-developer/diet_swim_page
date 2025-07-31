@@ -128,67 +128,76 @@ def get_dashboard_data(user):
         return {'no_data': True, 'today': today}
 
     questions = SurveyQuestion.objects.filter(is_active=True).order_by('order')
-    question_keys = [q.question_key for q in questions]
     question_texts = {q.question_key: q.question_text for q in questions}
     badge_labels = {q.question_key: (q.badge_label or q.question_key.upper()) for q in questions}
 
+    # Group questions by category
+    questions_by_category = {}
+    for q in questions:
+        if q.category_main not in questions_by_category:
+            questions_by_category[q.category_main] = []
+        questions_by_category[q.category_main].append(q)
+
+    # Perform analysis for each category
+    category_analysis_results = {}
+    overall_coef_map = {}
+    overall_pvalue_map = {}
+
+    for category, category_questions in questions_by_category.items():
+        category_question_keys = [q.question_key for q in category_questions]
+        
+        best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys = perform_regression_analysis(checkins, category_question_keys)
+
+        ai_insight = None
+        insight_message = None
+        model_confidence = None
+        
+        if best_model is not None:
+            coef_info = []
+            for i, k in enumerate(valid_question_keys):
+                original_idx = category_question_keys.index(k)
+                coef = best_coefs[i]
+                pvalue = p_values[original_idx]
+                overall_coef_map[k] = coef
+                overall_pvalue_map[k] = pvalue
+                
+                coef_info.append({
+                    'key': k,
+                    'text': question_texts[k],
+                    'coef': coef,
+                    'pvalue': pvalue,
+                    'badge': badge_labels.get(k, k.upper()),
+                    'action_text': convert_coefficient_to_action_language(coef, badge_labels.get(k, k.upper())),
+                })
+            
+            coef_info = [c for c in coef_info if c['pvalue'] is not None and c['pvalue'] < INSIGHT_P_VALUE_THRESHOLD and c['coef'] < 0]
+            coef_info = sorted(coef_info, key=lambda x: abs(x['coef']), reverse=True)
+            
+            ai_insight = {'positive': coef_info, 'negative': []}
+            model_confidence = get_model_confidence_text(best_r2)
+        else:
+            insight_message = "아직 이 카테고리의 패턴을 분석하기 위한 데이터가 부족합니다."
+
+        category_analysis_results[category] = {
+            'ai_insight': ai_insight,
+            'insight_message': insight_message,
+            'model_confidence': model_confidence,
+            'best_lag': best_lag,
+            'best_adj_r2': best_adj_r2,
+        }
+
+    # Prepare data for charts
     weight_data = [{'date': c.date.strftime('%Y-%m-%d'), 'weight': c.morning_fasting_weight} for c in checkins]
-    
-    wellness_data = {k: [] for k in question_keys}
-    for c in checkins:
-        for k in question_keys:
-            val = c.responses.get(k)
-            if val is None:
-                wellness_data[k].append({'date': c.date.strftime('%Y-%m-%d'), 'score': None})
-            else:
-                wellness_data[k].append({'date': c.date.strftime('%Y-%m-%d'), 'score': val})
-
-    best_model, best_coefs, p_values, best_lag, best_r2, best_adj_r2, valid_question_keys = perform_regression_analysis(checkins, question_keys)
-
-    ai_insight = None
-    insight_message = None
-    model_confidence = None
-    coef_map = {}
-    pvalue_map = {}
-
-    if best_model is not None:
-        coefs = best_coefs
-        coef_info = []
-        for i, k in enumerate(valid_question_keys):
-            original_idx = question_keys.index(k) if k in question_keys else None
-            coef_info.append({
-                'key': k,
-                'text': question_texts[k],
-                'coef': coefs[i],
-                'pvalue': p_values[original_idx] if original_idx is not None else None,
-                'badge': badge_labels.get(k, k.upper()),
-                'label': badge_labels.get(k, k.upper()),
-                'action_text': convert_coefficient_to_action_language(coefs[i], badge_labels.get(k, k.upper())),
-            })
-        
-        coef_info = [c for c in coef_info if c['pvalue'] is not None and c['pvalue'] < INSIGHT_P_VALUE_THRESHOLD and c['coef'] < 0]
-        coef_info = sorted(coef_info, key=lambda x: abs(x['coef']), reverse=True)
-        
-        positive = coef_info
-        negative = []
-        
-        ai_insight = {'positive': positive, 'negative': negative}
-        model_confidence = get_model_confidence_text(best_r2)
-
-        for i, k in enumerate(valid_question_keys):
-            original_idx = question_keys.index(k) if k in question_keys else None
-            coef_map[k] = best_coefs[i]
-            pvalue_map[k] = p_values[original_idx] if original_idx is not None else None
-    else:
-        insight_message = "아직 고객님의 웰니스 패턴을 분석하기 위한 데이터가 부족합니다. 매일 꾸준히 기록하시면 더욱 정확한 인사이트를 드릴 수 있어요!"
-
     weight_data_dates = [c['date'] for c in weight_data]
     weight_data_weights = [c['weight'] for c in weight_data]
-    wellness_data_scores = {k: [v['score'] for v in wellness_data[k]] for k in question_keys}
+    
+    wellness_data = {q.question_key: [] for q in questions}
+    for c in checkins:
+        for q in questions:
+            val = c.responses.get(q.question_key)
+            wellness_data[q.question_key].append({'date': c.date.strftime('%Y-%m-%d'), 'score': val})
 
-    for k in question_keys:
-        if not wellness_data_scores[k]:
-            wellness_data_scores[k] = []
+    wellness_data_scores = {k: [v['score'] for v in wellness_data[k]] for k in wellness_data}
 
     def get_circle_color(coef, pvalue):
         if coef is None or pvalue is None or pvalue >= INSIGHT_P_VALUE_THRESHOLD or coef > 0:
@@ -204,9 +213,9 @@ def get_dashboard_data(user):
             'scores_smooth': moving_average(wellness_data_scores[q.question_key]),
             'weights': moving_average(weight_data_weights),
             'badge': badge_labels.get(q.question_key, q.question_key.upper()),
-            'coef': coef_map.get(q.question_key),
-            'pvalue': pvalue_map.get(q.question_key),
-            'circle_color': get_circle_color(coef_map.get(q.question_key), pvalue_map.get(q.question_key)),
+            'coef': overall_coef_map.get(q.question_key),
+            'pvalue': overall_pvalue_map.get(q.question_key),
+            'circle_color': get_circle_color(overall_coef_map.get(q.question_key), overall_pvalue_map.get(q.question_key)),
         }
         for q in questions
     ]
@@ -215,19 +224,14 @@ def get_dashboard_data(user):
         'weight_data': weight_data,
         'weight_data_dates': weight_data_dates,
         'weight_data_weights': weight_data_weights,
-        'wellness_data': wellness_data,
         'wellness_data_scores': wellness_data_scores,
         'wellness_questions_chart_data': wellness_questions_chart_data,
         'questions': questions,
-        'ai_insight': ai_insight,
-        'insight_message': insight_message,
+        'category_analysis_results': category_analysis_results,
         'today': today,
         'no_data': False,
-        'model_confidence': model_confidence,
-        'best_lag': best_lag,
-        'best_adj_r2': best_adj_r2,
-        'coef_map': coef_map,
-        'pvalue_map': pvalue_map,
+        'coef_map': overall_coef_map,
+        'pvalue_map': overall_pvalue_map,
     }
 
 def perform_causal_analysis(checkins, question_keys, coef_map, pvalue_map):
