@@ -109,6 +109,11 @@ def wellness_dashboard_loading_view(request):
 def wellness_dashboard_view(request):
     user = request.user
     context = services.get_dashboard_data(user)
+
+    if context.get('ai_insight') and context['ai_insight'].get('positive'):
+        context['ai_insight_labels_positive'] = [item['badge'] for item in context['ai_insight']['positive']]
+        context['ai_insight_data_positive'] = [item['coef'] for item in context['ai_insight']['positive']]
+    
     return render(request, 'wellness_checkin/wellness_dashboard.html', context)
 
 @csrf_exempt
