@@ -1,0 +1,77 @@
+페이지 추가 계획: 웰니스 기록 관리 (CRUD)
+
+  ---
+
+  1단계: URL 설계 (`wellness_checkin/urls.py`)
+
+  먼저, 필요한 페이지들에 대한 URL을 정의합니다.
+
+   * 기록 목록 (History/List): 사용자가 자신의 모든 체크인 기록을 목록 형태로
+     볼 수 있는 페이지입니다.
+       * URL: wellness/history/
+       * URL 이름: checkin_history
+   * 기록 수정 (Edit/Update): 특정 날짜의 기록을 수정하는 페이지입니다. 기존의        
+     설문 입력 페이지를 재활용할 것입니다.
+       * URL: wellness/checkin/edit/<int:pk>/ (pk는 DailyCheckIn 모델의 고유
+         ID)
+       * URL 이름: checkin_edit
+   * 기록 삭제 (Delete): 특정 기록을 삭제하는 기능입니다.
+       * URL: wellness/checkin/delete/<int:pk>/
+       * URL 이름: checkin_delete
+
+  2단계: 뷰(View) 로직 구현 (`wellness_checkin/views.py`)
+
+  각 URL에 맞는 비즈니스 로직을 뷰 함수로 구현합니다.
+
+   * `checkin_history_view` (신규 생성):
+       * @login_required 데코레이터를 사용하여 로그인한 사용자만 접근 가능하게        
+         합니다.
+       * 현재 로그인된 사용자의 모든 DailyCheckIn 기록을 날짜
+         역순으로(order_by('-date')) 데이터베이스에서 조회합니다.
+       * 조회된 기록들을 템플릿에 전달하여 렌더링합니다.
+
+   * `daily_checkin_input_view` (기존 뷰 수정):
+       * "수정" 기능을 위해 이 뷰를 재활용합니다. 뷰가 pk 값을 인자로 받을 수
+         있도록 시그니처를 (request, pk=None)으로 변경합니다.
+       * pk가 주어지면, 이는 "수정" 모드입니다. pk에 해당하는 DailyCheckIn
+         객체를 가져와 폼에 instance로 전달하여 기존 데이터를 채웁니다.
+       * pk가 없으면, 이는 "생성" 모드이며 기존처럼 비어있는 폼을 보여줍니다.
+       * 폼 저장 로직은 instance의 존재 여부에 따라 Django가 알아서
+         생성(Create) 또는 수정(Update)을 처리하므로, 기존 로직을 거의 그대로
+         활용할 수 있습니다.
+
+   * `checkin_delete_view` (신규 생성):
+       * @login_required 데코레이터를 사용합니다.
+       * POST 요청만 허용하여, 실수로 링크를 클릭해 데이터가 삭제되는 것을
+         방지합니다.
+       * pk로 삭제할 DailyCheckIn 객체를 조회하되, 반드시 현재 로그인한 
+         사용자의 소유인지 확인하여 다른 사람의 기록을 삭제하지 못하도록
+         합니다.
+       * 객체를 삭제(object.delete())한 후, 성공 메시지(messages.success)를
+         표시하고 기록 목록 페이지로 리다이렉트합니다.
+
+  3단계: 템플릿(Template) 생성 및 수정
+
+  사용자 인터페이스(UI)를 만듭니다.
+
+   * `checkin_history.html` (신규 생성):
+       * main/base.html을 상속받습니다.
+       * 뷰에서 전달받은 체크인 기록들을 테이블(table) 형태로 반복문을 통해
+         표시합니다.
+       * 테이블의 각 행에는 날짜, 체중, 그리고 "수정"과 "삭제" 버튼이 포함된
+         관리 열을 둡니다.
+       * "수정" 버튼은 checkin_edit URL로, "삭제" 버튼은 checkin_delete URL로
+         연결됩니다. (삭제는 JavaScript confirm()으로 사용자에게 재확인하는
+         것이 좋습니다.)
+
+   * `daily_checkin_input.html` (기존 템플릿 수정):
+       * 뷰에서 pk (수정 모드) 여부를 전달받아, 페이지 제목을 "기록 입력" 또는        
+         "기록 수정"으로 동적으로 변경해 사용자 경험을 향상시킵니다.
+
+  4단계: 네비게이션(Navigation)에 링크 추가
+
+  사용자가 새로 만든 기록 관리 페이지에 쉽게 접근할 수 있도록 링크를
+  추가합니다.
+
+   * wellness_dashboard.html과 daily_checkin_input.html 상단의 탭 메뉴에 "기록        
+     관리" 탭을 추가하여 checkin_history 페이지로 연결합니다.

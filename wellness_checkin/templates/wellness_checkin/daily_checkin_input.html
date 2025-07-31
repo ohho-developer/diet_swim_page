@@ -1,18 +1,111 @@
 {% extends 'main/base.html' %}
 {% load static %}
+{% load wellness_filters %}
+
 
 {% block content %}
+<style>
+    .flatpickr-day.has-data {
+        background-color: #28a745 !important; /* Green background */
+        border-color: #fff !important;
+        border-width: 2px !important;
+        color: #fff !important; /* White text */
+        font-weight: bold !important;
+    }
+    .flatpickr-day.has-data:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+        box-shadow: 0 0 0 1px #218838 !important;
+    }
+    .flatpickr-day.has-data:focus {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+        box-shadow: 0 0 0 1px #218838 !important;
+    }
+    
+        .question-block {
+            padding: 1rem 0.5rem 0.5rem 0.5rem;
+            border-bottom: 1px solid #eee;
+            transition: all 0.3s ease;
+        }
+        .question-block.error {
+            border: 2px solid #dc3545;
+            border-radius: 8px;
+            background-color: #f8d7da;
+        }
+        .invalid-feedback {
+            display: none;
+            width: 100%;
+            margin-top: 0.25rem;
+            font-size: 0.875em;
+            color: #dc3545;
+        }
+        .invalid-feedback.show {
+            display: block;
+        }
+        .form-control.is-invalid {
+            border-color: #dc3545;
+        }
+        .validation-summary {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 1rem;
+            color: #721c24;
+            display: none;
+        }
+        .validation-summary.show {
+            display: block;
+        }
+        .validation-summary ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+        
+        .score-btn.selected {
+            background-color: #007bff !important;
+            color: #fff !important;
+            border-color: #007bff !important;
+        }
+        .score-btn.selected:focus {
+            background-color: #007bff !important;
+            color: #fff !important;
+            border-color: #007bff !important;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+        }
+        .score-btn.selected:hover {
+            background-color: #0056b3 !important;
+            color: #fff !important;
+            border-color: #0056b3 !important;
+        }
+        .score-btn.selected:active {
+            background-color: #004085 !important;
+            color: #fff !important;
+            border-color: #004085 !important;
+        }
+        /* 선택된 버튼의 모든 상태에서 스타일 유지 */
+        .score-btn.selected,
+        .score-btn.selected:focus,
+        .score-btn.selected:hover,
+        .score-btn.selected:active {
+            background-color: #007bff !important;
+            color: #fff !important;
+            border-color: #007bff !important;
+        }
+        .score-btn {
+            min-width: 38px;
+            font-weight: bold;
+        }
+    
+    </style>
 <div class="container" style="max-width: 480px; margin: 0 auto; padding: 2rem 0;">
-    <ul class="nav nav-tabs mb-4 justify-content-center">
-        <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{% url 'wellness_checkin:dashboard_loading' %}">대시보드</a>
-        </li>
-    </ul>
-    <h2 class="mb-2">데일리 웰니스 체크인</h2>
-    <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
+    {% include 'wellness_checkin/wellness_tabs.html' with active_tab='input' %}
+    <h2 class="mb-2">{% if is_edit_mode %}기록 수정{% else %}데일리 웰니스 체크인{% endif %}</h2>
+    <div class="mb-4 text-center text-muted">
+        <input type="text" id="date-picker" class="form-control text-center" style="font-size:1.1em; border:none; background:transparent; cursor:pointer;" readonly value="{{ today|date:'Y년 m월 d일 (D)' }}" data-input>
+    </div>
+
     {% if messages %}
         <div class="messages mb-3">
             {% for message in messages %}
@@ -42,16 +135,16 @@
             {% if q.guide_text %}
             <div class="text-muted mb-1" style="font-size:0.95em;">{{ q.guide_text }}</div>
             {% endif %}
-            <div class="score-btn-group" data-field="{{ q.question_key }}">
+            <div class="score-btn-group" data-field="{{ q.question_key }}" id="group-{{ q.question_key }}">
                 {# 점수 버튼 반복: min_score~max_score #}
                 {% for i in "12345"|slice:":"|make_list %}
                     {% with score=q.min_score|add:forloop.counter0 %}
                         {% if score <= q.max_score %}
-                        <button type="button" class="score-btn btn btn-outline-primary btn-sm mx-1 {% if input_responses.q.question_key == score %}selected{% endif %}" data-score="{{ score }}" data-field="{{ q.question_key }}">{{ score }}</button>
+                        <button type="button" class="score-btn btn btn-outline-primary btn-sm mx-1" data-score="{{ score }}" data-field="{{ q.question_key }}">{{ score }}</button>
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
-                <input type="hidden" name="{{ q.question_key }}" id="input-{{ q.question_key }}" value="{{ input_responses.q.question_key }}" required>
+                <input type="hidden" name="{{ q.question_key }}" id="input-{{ q.question_key }}" value="{{ input_responses|get_item:q.question_key }}" required data-initial-score="{{ input_responses|get_item:q.question_key }}">
                 <div class="invalid-feedback question-error" id="error-{{ q.question_key }}">이 문항에 응답해 주세요.</div>
             </div>
         </div>
@@ -61,206 +154,266 @@
     </form>
 </div>
 
-<style>
-.score-btn.selected {
-    background-color: #007bff;
-    color: #fff;
-    border-color: #007bff;
-}
-.score-btn {
-    min-width: 38px;
-    font-weight: bold;
-}
-.question-block {
-    padding: 1rem 0.5rem 0.5rem 0.5rem;
-    border-bottom: 1px solid #eee;
-    transition: all 0.3s ease;
-}
-.question-block.error {
-    border: 2px solid #dc3545;
-    border-radius: 8px;
-    background-color: #f8d7da;
-}
-.invalid-feedback {
-    display: none;
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.875em;
-    color: #dc3545;
-}
-.invalid-feedback.show {
-    display: block;
-}
-.form-control.is-invalid {
-    border-color: #dc3545;
-}
-.validation-summary {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 4px;
-    padding: 0.75rem 1.25rem;
-    margin-bottom: 1rem;
-    color: #721c24;
-    display: none;
-}
-.validation-summary.show {
-    display: block;
-}
-.validation-summary ul {
-    margin: 0;
-    padding-left: 1.5rem;
-}
-</style>
 
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('checkin-form');
-    const weightInput = document.getElementById('morning_fasting_weight');
-    const submitBtn = document.getElementById('submit-btn');
-    const loadingIndicator = document.getElementById('loading-indicator');
-    const validationSummary = document.getElementById('validation-summary');
-    const validationErrors = document.getElementById('validation-errors');
-    
-    // 체중 입력 실시간 검증
-    weightInput.addEventListener('input', function() {
-        validateWeight();
-    });
-    
-    weightInput.addEventListener('blur', function() {
-        validateWeight();
-    });
-    
-    function validateWeight() {
-        const weight = parseFloat(weightInput.value);
-        const weightError = document.getElementById('weight-error');
+                    // 전역 변수로 선언
+        let existingDates = [];
+        let markDatesWithData = null;
         
-        if (!weightInput.value) {
-            weightInput.classList.add('is-invalid');
-            weightError.classList.add('show');
-            weightError.textContent = '체중을 입력해 주세요.';
-            return false;
-        } else if (weight < 10 || weight > 300) {
-            weightInput.classList.add('is-invalid');
-            weightError.classList.add('show');
-            weightError.textContent = '체중은 10kg ~ 300kg 범위 내에서 입력해 주세요.';
-            return false;
-        } else {
-            weightInput.classList.remove('is-invalid');
-            weightError.classList.remove('show');
-            return true;
-        }
-    }
-    
-    // 점수 버튼 클릭 시
-    document.querySelectorAll('.score-btn-group').forEach(function(group) {
-        const field = group.getAttribute('data-field');
-        const questionBlock = group.closest('.question-block');
-        
-        group.querySelectorAll('.score-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                // 모든 버튼 selected 해제
-                group.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                // hidden input에 값 반영
-                document.getElementById('input-' + field).value = btn.getAttribute('data-score');
+        // 서버에서 전달된 날짜
+        const defaultDate = "{{ today|date:'Y-m-d' }}";
+        const defaultDateObj = new Date(defaultDate);
+        flatpickr("#date-picker", {
+            locale: "ko",
+            dateFormat: "Y년 m월 d일 (D)",
+            defaultDate: defaultDateObj,
+            onMonthChange: function(selectedDates, dateStr, instance) {
+                setTimeout(markDatesWithData, 100);
+            },
+            onReady: function(selectedDates, dateStr, instance) {
+                existingDates = JSON.parse('{{ existing_checkin_dates_json|escapejs }}');
                 
-                // 에러 상태 제거
-                questionBlock.classList.remove('error');
-                document.getElementById('error-' + field).classList.remove('show');
-                
-                // 다음 문항으로 스크롤
-                const nextBlock = document.getElementById('block-' + getNextField(field));
-                if (nextBlock) {
-                    setTimeout(() => {
-                        nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 100);
+                // 날짜 표시 함수
+                markDatesWithData = function() {
+                // 여러 방법으로 날짜 요소 찾기
+                let dayElements = instance.daysContainer.querySelectorAll('.flatpickr-day');
+                if (dayElements.length === 0) {
+                    dayElements = instance.calendarContainer.querySelectorAll('.flatpickr-day');
                 }
+                
+                dayElements.forEach(dayEl => {
+                    // aria-label에서 날짜 추출 (예: "2024년 1월 15일")
+                    const ariaLabel = dayEl.getAttribute('aria-label');
+                    
+                    if (ariaLabel) {
+                        // "8월 2, 2025" 형식을 YYYY-MM-DD로 변환
+                        const match = ariaLabel.match(/(\d{1,2})월\s*(\d{1,2}),\s*(\d{4})/);
+                        if (match) {
+                            const month = match[1].padStart(2, '0');
+                            const day = match[2].padStart(2, '0');
+                            const year = match[3];
+                            const dateStr = `${year}-${month}-${day}`;
+                            
+                            if (existingDates.includes(dateStr)) {
+                                dayEl.classList.add('has-data');
+                                // 강제로 스타일 적용
+                                dayEl.style.backgroundColor = '#28a745';
+                                dayEl.style.color = '#fff';
+                                dayEl.style.fontWeight = 'bold';
+                            } else {
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 월이 변경될 때마다 다시 마킹
+            instance.monthNav.addEventListener('click', function() {
+                setTimeout(markDatesWithData, 100);
             });
-        });
+            
+            // 달력이 열릴 때마다 마킹
+            instance.input.addEventListener('focus', function() {
+                setTimeout(markDatesWithData, 100);
+            });
+            
+            // 달력이 표시될 때마다 마킹 (onOpen 이벤트)
+            instance.input.addEventListener('click', function() {
+                setTimeout(markDatesWithData, 100);
+            });
+            
+            // 달력이 완전히 렌더링된 후 마킹
+            setTimeout(function() {
+                markDatesWithData();
+                // 추가로 1초 후에도 한 번 더 시도
+                setTimeout(markDatesWithData, 1000);
+            }, 100);
+        },
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length > 0) {
+                const selectedDate = selectedDates[0];
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const day = String(selectedDate.getDate()).padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day}`;
+                
+                // 현재 URL과 비교하여 같은 날짜가 아닐 때만 페이지 이동
+                const currentUrl = new URL(window.location.href);
+                const currentDate = currentUrl.searchParams.get('date');
+                
+                if (currentDate !== formattedDate) {
+                    window.location.href = `{% url 'wellness_checkin:daily_checkin_input' %}?date=${formattedDate}`;
+                }
+            }
+        }
     });
-    
-    // 다음 문항 key 찾기
-    function getNextField(currentField) {
-        const fields = Array.from(document.querySelectorAll('.score-btn-group')).map(g => g.getAttribute('data-field'));
-        const idx = fields.indexOf(currentField);
-        return fields[idx+1];
-    }
-    
-    // 폼 제출 시 유효성 검사
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('checkin-form');
+        const weightInput = document.getElementById('morning_fasting_weight');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const validationSummary = document.getElementById('validation-summary');
+        const validationErrors = document.getElementById('validation-errors');
         
-        const errors = [];
-        let isValid = true;
-        let firstErrorElement = null;
-        
-        // 모든 에러 상태 초기화
-        document.querySelectorAll('.question-block').forEach(block => {
-            block.classList.remove('error');
+        // 체중 입력 실시간 검증
+        weightInput.addEventListener('input', function() {
+            validateWeight();
         });
-        document.querySelectorAll('.invalid-feedback').forEach(feedback => {
-            feedback.classList.remove('show');
-        });
-        validationSummary.classList.remove('show');
         
-        // 체중 검증
-        if (!validateWeight()) {
-            isValid = false;
-            errors.push('체중을 올바르게 입력해 주세요.');
-            if (!firstErrorElement) firstErrorElement = weightInput;
+        weightInput.addEventListener('blur', function() {
+            validateWeight();
+        });
+        
+        function validateWeight() {
+            const weight = parseFloat(weightInput.value);
+            const weightError = document.getElementById('weight-error');
+            
+            if (!weightInput.value) {
+                weightInput.classList.add('is-invalid');
+                weightError.classList.add('show');
+                weightError.textContent = '체중을 입력해 주세요.';
+                return false;
+            } else if (weight < 10 || weight > 300) {
+                weightInput.classList.add('is-invalid');
+                weightError.classList.add('show');
+                weightError.textContent = '체중은 10kg ~ 300kg 범위 내에서 입력해 주세요.';
+                return false;
+            } else {
+                weightInput.classList.remove('is-invalid');
+                weightError.classList.remove('show');
+                return true;
+            }
         }
         
-        // 설문 응답 검증
+        // 점수 버튼 클릭 시
         document.querySelectorAll('.score-btn-group').forEach(function(group) {
             const field = group.getAttribute('data-field');
-            const val = document.getElementById('input-' + field).value;
             const questionBlock = group.closest('.question-block');
-            const questionText = questionBlock.querySelector('b').textContent.replace(' *', '');
             
-            if (!val) {
-                isValid = false;
-                questionBlock.classList.add('error');
-                document.getElementById('error-' + field).classList.add('show');
-                errors.push(`"${questionText}" 문항에 응답해 주세요.`);
-                if (!firstErrorElement) firstErrorElement = questionBlock;
-            }
+            group.querySelectorAll('.score-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                     // 모든 버튼 selected 해제 및 스타일 초기화
+                     group.querySelectorAll('.score-btn').forEach(b => {
+                         b.classList.remove('selected');
+                         b.style.backgroundColor = '';
+                         b.style.color = '';
+                         b.style.borderColor = '';
+                     });
+                     btn.classList.add('selected');
+                     
+                     // CSS 강제 재적용
+                     btn.style.backgroundColor = '#0152a8';
+                     btn.style.color = '#fff';
+                     btn.style.borderColor = '#0152a8';
+                     
+                     // hidden input에 값 반영
+                     document.getElementById('input-' + field).value = btn.getAttribute('data-score');
+                     
+                    // 에러 상태 제거
+                    questionBlock.classList.remove('error');
+                    document.getElementById('error-' + field).classList.remove('show');
+                    
+                    // 다음 문항으로 스크롤
+                    const nextBlock = document.getElementById('block-' + getNextField(field));
+                    if (nextBlock) {
+                        setTimeout(() => {
+                            nextBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
+                    }
+                });
+            });
         });
         
-        if (!isValid) {
-            // 에러 요약 표시
-            validationErrors.innerHTML = '';
-            errors.forEach(error => {
-                const li = document.createElement('li');
-                li.textContent = error;
-                validationErrors.appendChild(li);
-            });
-            validationSummary.classList.add('show');
-            
-            // 첫 번째 에러 항목으로 스크롤
-            if (firstErrorElement) {
-                firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            
-            return false;
+        // 다음 문항 key 찾기
+        function getNextField(currentField) {
+            const fields = Array.from(document.querySelectorAll('.score-btn-group')).map(g => g.getAttribute('data-field'));
+            const idx = fields.indexOf(currentField);
+            return fields[idx+1];
         }
         
-        // 모든 검증 통과 시 제출
-        submitBtn.disabled = true;
-        submitBtn.textContent = '저장 중...';
-        loadingIndicator.style.display = 'block';
+        // 폼 제출 시 유효성 검사
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const errors = [];
+            let isValid = true;
+            let firstErrorElement = null;
+            
+            // 모든 에러 상태 초기화
+            document.querySelectorAll('.question-block').forEach(block => {
+                block.classList.remove('error');
+            });
+            document.querySelectorAll('.invalid-feedback').forEach(feedback => {
+                feedback.classList.remove('show');
+            });
+            validationSummary.classList.remove('show');
+            
+            // 체중 검증
+            if (!validateWeight()) {
+                isValid = false;
+                errors.push('체중을 올바르게 입력해 주세요.');
+                if (!firstErrorElement) firstErrorElement = weightInput;
+            }
+            
+            // 설문 응답 검증
+            document.querySelectorAll('.score-btn-group').forEach(function(group) {
+                const field = group.getAttribute('data-field');
+                const val = document.getElementById('input-' + field).value;
+                const questionBlock = group.closest('.question-block');
+                const questionText = questionBlock.querySelector('b').textContent.replace(' *', '');
+                
+                if (!val) {
+                    isValid = false;
+                    questionBlock.classList.add('error');
+                    document.getElementById('error-' + field).classList.add('show');
+                    errors.push(`"${questionText}" 문항에 응답해 주세요.`);
+                    if (!firstErrorElement) firstErrorElement = questionBlock;
+                }
+            });
+            
+            if (!isValid) {
+                // 에러 요약 표시
+                validationErrors.innerHTML = '';
+                errors.forEach(error => {
+                    const li = document.createElement('li');
+                    li.textContent = error;
+                    validationErrors.appendChild(li);
+                });
+                validationSummary.classList.add('show');
+                
+                // 첫 번째 에러 항목으로 스크롤
+                if (firstErrorElement) {
+                    firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                return false;
+            }
+            
+            // 모든 검증 통과 시 제출
+            submitBtn.disabled = true;
+            submitBtn.textContent = '저장 중...';
+            loadingIndicator.style.display = 'block';
+            
+            // 실제 폼 제출
+            form.submit();
+        });
         
-        // 실제 폼 제출
-        form.submit();
+                 // 기존 응답 selected 처리
+         document.querySelectorAll('.score-btn-group').forEach(function(group) {
+             const field = group.getAttribute('data-field');
+             const initialScore = document.getElementById('input-' + field).dataset.initialScore;
+             if (initialScore && initialScore !== 'None' && initialScore !== '') {
+                 const btn = group.querySelector(`.score-btn[data-score="${initialScore}"]`);
+                 if (btn) {
+                     btn.classList.add('selected');
+                 }
+             }
+         });
     });
-    
-    // 기존 응답 selected 처리
-    {% for q in questions %}
-    {% if input_responses.q.question_key %}
-    const btn{{ forloop.counter }} = document.querySelector('.score-btn[data-field="{{ q.question_key }}"][data-score="{{ input_responses.q.question_key }}"]');
-    if (btn{{ forloop.counter }}) btn{{ forloop.counter }}.classList.add('selected');
-    document.getElementById('input-{{ q.question_key }}').value = '{{ input_responses.q.question_key }}';
-    {% endif %}
-    {% endfor %}
-});
 </script>
-{% endblock %} 
+{% endblock %}

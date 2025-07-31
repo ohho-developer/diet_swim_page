@@ -2,14 +2,7 @@
 {% load static %}
 {% block content %}
 <div class="container" style="max-width:900px; margin:0 auto; padding:2rem 0;">
-    <ul class="nav nav-tabs mb-4 justify-content-center">
-        <li class="nav-item">
-            <a class="nav-link" href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="{% url 'wellness_checkin:dashboard_loading' %}">대시보드</a>
-        </li>
-    </ul>
+    {% include 'wellness_checkin/wellness_tabs.html' with active_tab='dashboard' %}
     <h2 class="mb-2">웰니스 대시보드</h2>
     <div class="mb-4 text-center text-muted" style="font-size:1.1em;">{{ today|date:'Y년 m월 d일 (D)' }}</div>
     {% if no_data %}
@@ -61,7 +54,7 @@
             <hr class="my-3">
             {% for category, results in category_analysis_results.items %}
             <div class="border rounded p-3 mb-3">
-                <h6 class="font-weight-bold">{{ category }} 습관 영향 분석</h6>
+                <h6 class="font-weight-bold">{{ category }} 영향 분석</h6>
                 <hr>
                 {% if results.ai_insight and results.ai_insight.positive %}
                     {% if results.best_lag %}

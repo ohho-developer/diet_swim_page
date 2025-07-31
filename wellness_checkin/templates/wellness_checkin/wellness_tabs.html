@@ -1,0 +1,11 @@
+<ul class="nav nav-tabs mb-4 justify-content-center">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'input' %}active{% endif %}" {% if active_tab == 'input' %}aria-current="page"{% endif %} href="{% url 'wellness_checkin:daily_checkin_input' %}">설문 입력</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'history' %}active{% endif %}" {% if active_tab == 'history' %}aria-current="page"{% endif %} href="{% url 'wellness_checkin:checkin_history' %}">기록 관리</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'dashboard' %}active{% endif %}" {% if active_tab == 'dashboard' %}aria-current="page"{% endif %} href="{% url 'wellness_checkin:dashboard_loading' %}">대시보드</a>
+    </li>
+</ul>
