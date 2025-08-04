@@ -24,7 +24,7 @@
             <hr>
         {% endif %}
 
-        <form method="POST" action="{% url 'account_login' %}" class="needs-validation" novalidate>
+        <form id="login-form" method="POST" action="{% url 'account_login' %}" class="needs-validation" novalidate>
             {% csrf_token %}
             
             {% if form.errors %}
@@ -116,4 +116,45 @@
         </div>
     </div>
 </div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 class="mb-0">{% trans "Signing in..." %}</h5>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('login-form');
+    const loadingModalElement = document.getElementById('loadingModal');
+    
+    if (loginForm && loadingModalElement) {
+        const loadingModal = new bootstrap.Modal(loadingModalElement);
+
+        loginForm.addEventListener('submit', function(event) {
+            // 1. Prevent the form from submitting immediately
+            event.preventDefault();
+
+            // 2. Show the modal
+            loadingModal.show();
+
+            // 3. Submit the form after a short delay to ensure the modal is visible
+            setTimeout(function() {
+                // This will submit the form, but without triggering this event listener again
+                loginForm.submit();
+            }, 150);
+        });
+    }
+});
+</script>
 {% endblock %} 
