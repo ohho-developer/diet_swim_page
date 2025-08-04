@@ -683,8 +683,8 @@
         }
     </style>
 </head>
-<body>
-    <div class="container">
+<body class="d-flex flex-column" style="min-height: 100vh;">
+    <div class="container d-flex flex-column flex-grow-1">
         <!-- Offcanvas Navbar 시작 -->
         <nav class="navbar sticky-top px-4" style="background-color: #0152a8;">
             <a class="navbar-brand text-white" style="font-family: 'Anton', sans-serif; font-size: 2rem;" href="{% url 'index' %}">
@@ -738,9 +738,8 @@
             </div>
         </nav>
         <!-- Offcanvas Navbar 끝 -->
-        <div>
-            {% block content %}{% endblock %}
-        </div>
+        
+        {% block content %}{% endblock %}
 
         <!-- Footer - Updated -->
         <footer class="footer p-5" style="background-color: #0152a8; color: #fff;">
