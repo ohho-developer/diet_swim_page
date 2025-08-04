@@ -35,7 +35,7 @@ jobs:
                 - name: SECRET_KEY
                   value: "django-insecure-wr_&)@4ic6182u--amva78l1ji*2xjuf^c$-&9@zoietxzikps"
                 - name: ALLOWED_HOSTS
-                  value: "port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app,bloomingswim.designusplus.com"
+                  value: "port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app,wellnesscheckin.designusplus.com"
                 - name: DEBUG
                   value: "False"
                 - name: DB_NAME
