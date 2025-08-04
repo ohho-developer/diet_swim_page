@@ -41,7 +41,7 @@ if not DEBUG:
     pass
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=os.environ.get("ALLOWED_HOSTS", "").split(",") if os.environ.get("ALLOWED_HOSTS") else [])
-CSRF_TRUSTED_ORIGINS = ['https://port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app','https://bloomingswim.designusplus.com']
+CSRF_TRUSTED_ORIGINS = ['https://port-0-diet-swim-page-mbvo57g1a476113a.sel4.cloudtype.app','https://wellnesscheckin.designusplus.com']
 
 
 
