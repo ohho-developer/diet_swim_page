@@ -177,12 +177,6 @@ def causal_analysis_api(request):
         
         result = services.perform_causal_analysis(checkins, question_keys, coef_map, pvalue_map)
         
-        # Print debug logs to the console
-        if 'debug_logs' in result:
-            print("\n--- Causal Analysis Debug Logs ---")
-            pprint(result['debug_logs'])
-            print("---------------------------------\n")
-
         return JsonResponse(result)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 

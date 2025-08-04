@@ -260,6 +260,15 @@ ACCOUNT_FORMS = {
     'signup': 'accounts.forms.CustomSignupForm',
 }
 
+# Session and CSRF Cookie Settings for Modern Browsers (especially Safari ITP)
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# In production, these should be True
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 # HTML Email settings for allauth
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[블루밍스윔] "
 ACCOUNT_EMAIL_REQUIRED = True
