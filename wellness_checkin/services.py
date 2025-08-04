@@ -14,7 +14,7 @@ MIN_VALID_DATA_THRESHOLD = 7
 VALID_DATA_RATIO_THRESHOLD = 3  # 데이터의 1/3
 REGRESSION_MAX_LAG = 7
 CAUSAL_ANALYSIS_MAX_LAG = 4
-CAUSAL_ANALYSIS_P_VALUE_THRESHOLD = 0.05
+CAUSAL_ANALYSIS_P_VALUE_THRESHOLD = 0.1
 INSIGHT_P_VALUE_THRESHOLD = 0.2
 MOVING_AVERAGE_WINDOW = 5
 # --- End of Analysis Configuration ---
@@ -29,7 +29,7 @@ def prepare_regression_data(checkins, question_keys):
     df = df.dropna(subset=['weight'])
     
     # 독립변수 결측값 처리: 충분한 데이터가 있는 변수만 포함
-    min_data_threshold = max(MIN_VALID_DATA_THRESHOLD, len(df) // VALID_DATA_RATIO_THRESHOLD)
+    min_data_threshold = MIN_VALID_DATA_THRESHOLD
     valid_question_keys = []
     
     for key in question_keys:
@@ -237,75 +237,100 @@ def get_dashboard_data(user):
 def perform_causal_analysis(checkins, question_keys, coef_map, pvalue_map):
     warnings.filterwarnings("ignore", category=FutureWarning)
     badge_labels = {q.question_key: (q.badge_label or q.question_key.upper()) for q in SurveyQuestion.objects.filter(is_active=True)}
-    result = {'causal_links_list': [], 'causal_nodes_vis': [], 'causal_edges_vis': []}
-    
+    result = {'causal_links_list': [], 'causal_nodes_vis': [], 'causal_edges_vis': [], 'debug_logs': []}
+    debug_logs = result['debug_logs']
+
     df, valid_question_keys = prepare_regression_data(checkins, question_keys)
-    
-    if df is not None and len(df) >= len(valid_question_keys) + 2:
-        df_causal = df[valid_question_keys]
-        causal_links = []
-        old_stdout = sys.stdout
-        sys.stdout = io.StringIO()
-        try:
-            for a in df_causal.columns:
-                for b in df_causal.columns:
-                    if a == b:
-                        continue
-                    test_data = df_causal[[b, a]].dropna()
-                    if len(test_data) > CAUSAL_ANALYSIS_MAX_LAG + 2:
-                        try:
-                            granger_result = grangercausalitytests(test_data, maxlag=CAUSAL_ANALYSIS_MAX_LAG)
-                            pvals = [granger_result[lag][0]['ssr_ftest'][1] for lag in range(1, CAUSAL_ANALYSIS_MAX_LAG+1)]
-                            min_p = min(pvals)
-                            if min_p < CAUSAL_ANALYSIS_P_VALUE_THRESHOLD:
-                                causal_links.append((a, b, min_p))
-                        except Exception as e:
-                            continue
-        finally:
-            sys.stdout = old_stdout
-            
-        causal_links_list = []
-        causal_edges_vis = []
-        for a, b, p in sorted(causal_links, key=lambda x: x[2]):
-            a_label = badge_labels.get(a, a.upper())
-            b_label = badge_labels.get(b, b.upper())
-            causal_links_list.append({'from': a_label, 'to': b_label, 'p': p})
-            causal_edges_vis.append({
-                'from': a,
-                'to': b,
-                'arrows': 'to',
-                'color': { 'color': '#1976d2' },
-                'width': 1,
-            })
-            
-        if not causal_edges_vis:
-            causal_nodes_set = set(valid_question_keys)
+    debug_logs.append(f"Initial data prepared. DataFrame size: {len(df) if df is not None else 0} rows.")
+    debug_logs.append(f"Valid question keys for analysis: {valid_question_keys}")
+
+    if df is None or len(df) < len(valid_question_keys) + 2:
+        debug_logs.append("Analysis stopped: Not enough data for causal analysis after preparation.")
+        if df is None:
+            debug_logs.append("Reason: DataFrame is None.")
         else:
-            causal_nodes_set = set()
-            for edge in causal_edges_vis:
-                causal_nodes_set.add(edge['from'])
-                causal_nodes_set.add(edge['to'])
+            debug_logs.append(f"Reason: DataFrame has {len(df)} rows, but at least {len(valid_question_keys) + 2} are required.")
+        return result
+
+    df_causal = df[valid_question_keys]
+    causal_links = []
+    debug_logs.append(f"Starting Granger causality tests for {len(df_causal.columns)} variables.")
+    
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        for a in df_causal.columns:
+            for b in df_causal.columns:
+                if a == b:
+                    continue
                 
-        def get_circle_color(coef, pvalue):
-            if coef is None or pvalue is None or pvalue >= INSIGHT_P_VALUE_THRESHOLD or coef > 0:
-                return "#cccccc"
-            else:
-                return "#28a745"
+                test_data = df_causal[[b, a]].dropna()
+                debug_logs.append(f"Testing causality from '{a}' to '{b}'. Number of paired data points: {len(test_data)}.")
+
+                if len(test_data) <= CAUSAL_ANALYSIS_MAX_LAG + 2:
+                    debug_logs.append(f"--> Skipped: Not enough data. Required > {CAUSAL_ANALYSIS_MAX_LAG + 2}.")
+                    continue
                 
-        result['causal_nodes_vis'] = []
-        for k in causal_nodes_set:
-            coef = coef_map.get(k)
-            pvalue = pvalue_map.get(k)
-            result['causal_nodes_vis'].append({
-                'id': k,
-                'label': badge_labels.get(k, k.upper()),
-                'shape': 'dot',
-                'size': 10,
-                'color': {'background': get_circle_color(coef, pvalue), 'border': '#1976d2'},
-                'font': {'size': 14}
-            })
-            
-        result['causal_links_list'] = causal_links_list
-        result['causal_edges_vis'] = causal_edges_vis
+                try:
+                    granger_result = grangercausalitytests(test_data, maxlag=CAUSAL_ANALYSIS_MAX_LAG, verbose=False)
+                    pvals = [granger_result[lag][0]['ssr_ftest'][1] for lag in range(1, CAUSAL_ANALYSIS_MAX_LAG + 1)]
+                    min_p = min(pvals)
+                    debug_logs.append(f"--> Granger test successful. Min p-value: {min_p:.4f}")
+                    if min_p < CAUSAL_ANALYSIS_P_VALUE_THRESHOLD:
+                        causal_links.append((a, b, min_p))
+                        debug_logs.append(f"    **** Found significant causal link! ****")
+                except Exception as e:
+                    debug_logs.append(f"--> Granger test failed with error: {e}")
+                    continue
+    finally:
+        sys.stdout = old_stdout
         
+    debug_logs.append(f"Causality tests finished. Found {len(causal_links)} significant links.")
+
+    causal_links_list = []
+    causal_edges_vis = []
+    for a, b, p in sorted(causal_links, key=lambda x: x[2]):
+        a_label = badge_labels.get(a, a.upper())
+        b_label = badge_labels.get(b, b.upper())
+        causal_links_list.append({'from': a_label, 'to': b_label, 'p': p})
+        causal_edges_vis.append({
+            'from': a,
+            'to': b,
+            'arrows': 'to',
+            'color': { 'color': '#1976d2' },
+            'width': 1,
+        })
+        
+    if not causal_edges_vis:
+        causal_nodes_set = set(valid_question_keys)
+        debug_logs.append("No causal edges found. Displaying all valid question keys as nodes.")
+    else:
+        causal_nodes_set = set()
+        for edge in causal_edges_vis:
+            causal_nodes_set.add(edge['from'])
+            causal_nodes_set.add(edge['to'])
+        debug_logs.append(f"Found causal edges. Displaying {len(causal_nodes_set)} nodes involved in links.")
+            
+    def get_circle_color(coef, pvalue):
+        if coef is None or pvalue is None or pvalue >= INSIGHT_P_VALUE_THRESHOLD or coef > 0:
+            return "#cccccc"
+        else:
+            return "#28a745"
+            
+    result['causal_nodes_vis'] = []
+    for k in causal_nodes_set:
+        coef = coef_map.get(k)
+        pvalue = pvalue_map.get(k)
+        result['causal_nodes_vis'].append({
+            'id': k,
+            'label': badge_labels.get(k, k.upper()),
+            'shape': 'dot',
+            'size': 10,
+            'color': {'background': get_circle_color(coef, pvalue), 'border': '#1976d2'},
+            'font': {'size': 14}
+        })
+        
+    result['causal_links_list'] = causal_links_list
+    result['causal_edges_vis'] = causal_edges_vis
+    
     return result

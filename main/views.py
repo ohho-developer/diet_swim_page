@@ -28,7 +28,7 @@ def email_subscribe(request):
 def index(request):
     if request.user.is_authenticated:
         return redirect(reverse('wellness_checkin:daily_checkin_input'))
-    return render(request, 'main/index.html')
+    return render(request, 'main/new_index.html')
 
 @login_required
 def profile(request):
